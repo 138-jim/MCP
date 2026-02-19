@@ -240,10 +240,14 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
         if end_frame >= 0:
             clip_info["endFrame"] = end_frame
         pool = _get_pool(state)
-        result = pool.append_to_timeline([clip_info])
-        if result:
+        proj = state.session.get_project_manager().get_current_project()
+        tl = proj.get_current_timeline()
+        before = len(tl.get_item_list_in_track("video", track_index))
+        pool.append_to_timeline([clip_info])
+        after = len(tl.get_item_list_in_track("video", track_index))
+        if after > before:
             return f"Inserted '{clip_name}' at frame {record_frame} on track V{track_index}"
-        return f"Failed to insert '{clip_name}' at frame {record_frame}"
+        return f"Failed to insert '{clip_name}' at frame {record_frame} — track may have existing content at that position"
 
     @mcp.tool()
     @resolve_tool
