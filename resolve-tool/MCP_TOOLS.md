@@ -42,6 +42,8 @@ Manage databases, project folders, and projects.
 | `resolve_load_project` | `name` | Load an existing project |
 | `resolve_get_current_project` | — | Get name of the current project |
 | `resolve_save_project` | — | Save the current project |
+| `resolve_get_project_setting` | `key` | Get a project setting (empty key = all settings) |
+| `resolve_set_project_setting` | `key`, `value` | Set a project setting (e.g. timelineFrameRate) |
 | `resolve_export_project` | `name`, `path`, `with_stills_and_luts?` | Export a project to a file |
 | `resolve_import_project` | `path`, `name?` | Import a project from a file |
 
@@ -127,7 +129,6 @@ Create, navigate, and configure timelines.
 | `resolve_get_timeline_markers` | — | Get all markers on the timeline |
 | `resolve_add_timeline_marker` | `frame`, `color`, `name`, `note?`, `duration?` | Add a marker at a frame |
 | `resolve_delete_timeline_marker` | `frame` | Delete a marker at a frame |
-| `resolve_set_timeline_mark` | `mark_in?`, `mark_out?`, `clear?` | Set or clear mark in/out points on the timeline |
 
 ### Settings
 
@@ -168,7 +169,6 @@ Inspect and modify clips placed on the timeline. Items are addressed by `track_t
 | `resolve_get_item_property` | `track_type`, `track_index`, `item_index`, `key` | Get a single property value |
 | `resolve_set_item_property` | `track_type`, `track_index`, `item_index`, `key`, `value` | Set a property (Pan, Tilt, ZoomX, Opacity, CompositeMode, etc.) |
 | `resolve_get_item_offsets` | `track_type`, `track_index`, `item_index` | Get trim offsets, source start/end, and timeline position |
-| ~~`resolve_trim_item`~~ | — | **Disabled** — Resolve API has no setter for LeftOffset/RightOffset |
 | `resolve_set_item_clip_color` | `track_type`, `track_index`, `item_index`, `color` | Set the clip color label |
 
 ### Markers

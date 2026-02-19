@@ -179,6 +179,40 @@ def register_project_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
+    def resolve_get_project_setting(key: str) -> str:
+        """Get a project setting by key. Use empty string to get all settings.
+
+        Common keys: timelineFrameRate, timelineResolutionWidth,
+        timelineResolutionHeight, videoMonitorFormat, superScale.
+
+        Args:
+            key: Setting key (empty string returns all settings).
+        """
+        proj = state.session.get_project_manager().get_current_project()
+        result = proj.get_setting(key)
+        if isinstance(result, dict):
+            return format_dict(result, "Project settings")
+        return f"{key}: {result}"
+
+    @mcp.tool()
+    @resolve_tool
+    def resolve_set_project_setting(key: str, value: str) -> str:
+        """Set a project setting.
+
+        Common keys: timelineFrameRate (e.g. "24", "29.97 DF"),
+        timelineResolutionWidth, timelineResolutionHeight.
+
+        Args:
+            key: Setting key.
+            value: Setting value.
+        """
+        proj = state.session.get_project_manager().get_current_project()
+        if proj.set_setting(key, value):
+            return f"Set {key}={value}"
+        return f"Failed to set {key}"
+
+    @mcp.tool()
+    @resolve_tool
     def resolve_import_project(path: str, name: str = "") -> str:
         """Import a project from a file.
 

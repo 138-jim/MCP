@@ -315,58 +315,6 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         ]
         return "\n".join(lines)
 
-    # Disabled: SetProperty("LeftOffset"/"RightOffset") silently fails —
-    # the Resolve scripting API has no setter for trim offsets.
-    @resolve_tool
-    def resolve_trim_item(
-        track_type: str,
-        track_index: int,
-        item_index: int,
-        head_frames: int = 0,
-        tail_frames: int = 0,
-    ) -> str:
-        """Trim a clip's head or tail by adjusting its offsets.
-
-        Adds frames to the left offset (trims from the start) and/or right
-        offset (trims from the end). Use negative values to extend (un-trim)
-        if the source media has available frames.
-
-        Args:
-            track_type: Track type (video or audio).
-            track_index: Track index (1-based).
-            item_index: Item index within the track (0-based).
-            head_frames: Frames to trim from the start (positive = trim, negative = extend).
-            tail_frames: Frames to trim from the end (positive = trim, negative = extend).
-        """
-        if head_frames == 0 and tail_frames == 0:
-            return "No trim specified (both head_frames and tail_frames are 0)"
-        item = _get_item(state, track_type, track_index, item_index)
-        if item is None:
-            return f"Item not found at {track_type}:{track_index}:{item_index}"
-        name = item.get_name()
-        results = []
-        if head_frames != 0:
-            current_left = item.get_left_offset()
-            new_left = current_left + head_frames
-            if new_left < 0:
-                return f"Cannot extend head beyond source start (current LeftOffset={current_left}, requested change={head_frames})"
-            if item.set_property("LeftOffset", new_left):
-                results.append(f"LeftOffset: {current_left} -> {new_left}")
-            else:
-                results.append(f"Failed to set LeftOffset on {name}")
-        if tail_frames != 0:
-            current_right = item.get_right_offset()
-            new_right = current_right + tail_frames
-            if new_right < 0:
-                return f"Cannot extend tail beyond source end (current RightOffset={current_right}, requested change={tail_frames})"
-            if item.set_property("RightOffset", new_right):
-                results.append(f"RightOffset: {current_right} -> {new_right}")
-            else:
-                results.append(f"Failed to set RightOffset on {name}")
-        new_dur = item.get_duration()
-        results.append(f"New duration: {new_dur}")
-        return f"Trimmed {name}:\n" + "\n".join(results)
-
     @mcp.tool()
     @resolve_tool
     def resolve_stabilize_clip(

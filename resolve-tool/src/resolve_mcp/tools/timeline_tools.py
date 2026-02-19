@@ -299,42 +299,6 @@ def register_timeline_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
-    def resolve_set_timeline_mark(
-        mark_in: int = -1, mark_out: int = -1, clear: bool = False
-    ) -> str:
-        """Set or clear mark in/out points on the current timeline.
-
-        Args:
-            mark_in: Frame number for mark-in point (-1 to leave unchanged).
-            mark_out: Frame number for mark-out point (-1 to leave unchanged).
-            clear: If true, clear both mark in and mark out points instead of setting them.
-        """
-        tl = _get_timeline(state)
-        if clear:
-            # Resolve scripting API has no direct clear marks on timeline;
-            # setting to start/end frame effectively removes the range.
-            start = tl.get_start_frame()
-            end = tl.get_end_frame()
-            tl.set_mark_in(start)
-            tl.set_mark_out(end)
-            return "Cleared timeline mark in/out"
-        results = []
-        if mark_in >= 0:
-            if tl.set_mark_in(mark_in):
-                results.append(f"Mark in set to frame {mark_in}")
-            else:
-                results.append(f"Failed to set mark in to frame {mark_in}")
-        if mark_out >= 0:
-            if tl.set_mark_out(mark_out):
-                results.append(f"Mark out set to frame {mark_out}")
-            else:
-                results.append(f"Failed to set mark out to frame {mark_out}")
-        if not results:
-            return "No marks specified (both mark_in and mark_out are -1)"
-        return "\n".join(results)
-
-    @mcp.tool()
-    @resolve_tool
     def resolve_get_timeline_setting(key: str) -> str:
         """Get a timeline setting by key. Use empty string to get all settings."""
         tl = _get_timeline(state)

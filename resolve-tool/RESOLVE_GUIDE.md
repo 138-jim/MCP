@@ -25,6 +25,17 @@ resolve_set_current_timeline(name)    → switch to one by name
 resolve_get_current_timeline          → get name, frame range, start timecode
 ```
 
+### Project settings
+```
+resolve_get_project_setting("")                            → all settings
+resolve_get_project_setting("timelineFrameRate")           → e.g. "24"
+resolve_set_project_setting("timelineFrameRate", "29.97")  → set frame rate for new timelines
+```
+Frame rate applies to **new timelines only** — you cannot change an existing timeline's frame rate.
+Drop frame: append "DF", e.g. `"29.97 DF"`.
+
+Other useful keys: `timelineResolutionWidth`, `timelineResolutionHeight`, `superScale`.
+
 ### Creating timelines
 ```
 resolve_create_timeline(name)                        → empty timeline
@@ -252,7 +263,6 @@ Set `duration=0` for full clip length.
 - **Timecode format**: `"HH:MM:SS:FF"` (e.g., `"01:00:05:00"`).
 - **Frames**: Integer values. Use `resolve_get_current_timeline` to see the frame range.
 - Move the playhead: `resolve_set_current_timecode("01:00:10:00")`.
-- Set mark in/out: `resolve_set_timeline_mark(mark_in=1000, mark_out=1500)`.
 
 ## Tips and Pitfalls
 
