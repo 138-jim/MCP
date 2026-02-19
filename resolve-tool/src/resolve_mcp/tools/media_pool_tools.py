@@ -207,6 +207,46 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
+    def resolve_insert_clip_at_frame(
+        clip_name: str,
+        record_frame: int,
+        start_frame: int = -1,
+        end_frame: int = -1,
+        track_index: int = 1,
+    ) -> str:
+        """Insert a media pool clip at a specific timeline frame position.
+
+        Places a clip from the current bin onto the timeline at the given
+        record frame. Optionally specify source in/out points and target
+        video track.
+
+        Args:
+            clip_name: Name of the clip in the current media pool bin.
+            record_frame: Timeline frame where the clip should be placed.
+            start_frame: Source start frame (-1 to use clip default).
+            end_frame: Source end frame (-1 to use clip default).
+            track_index: Video track index (1-based, default 1).
+        """
+        clip = _find_clip_by_name(state, clip_name)
+        if clip is None:
+            return f"Clip not found: {clip_name}"
+        clip_info: dict = {
+            "mediaPoolItem": clip._obj,
+            "recordFrame": record_frame,
+            "trackIndex": track_index,
+        }
+        if start_frame >= 0:
+            clip_info["startFrame"] = start_frame
+        if end_frame >= 0:
+            clip_info["endFrame"] = end_frame
+        pool = _get_pool(state)
+        result = pool.append_to_timeline([clip_info])
+        if result:
+            return f"Inserted '{clip_name}' at frame {record_frame} on track V{track_index}"
+        return f"Failed to insert '{clip_name}' at frame {record_frame}"
+
+    @mcp.tool()
+    @resolve_tool
     def resolve_import_timeline(path: str) -> str:
         """Import a timeline from a file (AAF, EDL, XML, FCPXML, OTIO, etc.)."""
         pool = _get_pool(state)

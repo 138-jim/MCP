@@ -1,6 +1,6 @@
 # DaVinci Resolve MCP Server — Tool Reference
 
-110 tools for controlling DaVinci Resolve via the Model Context Protocol.
+115 tools for controlling DaVinci Resolve via the Model Context Protocol.
 Tested against DaVinci Resolve 20.3 (Free).
 
 ---
@@ -127,6 +127,7 @@ Create, navigate, and configure timelines.
 | `resolve_get_timeline_markers` | — | Get all markers on the timeline |
 | `resolve_add_timeline_marker` | `frame`, `color`, `name`, `note?`, `duration?` | Add a marker at a frame |
 | `resolve_delete_timeline_marker` | `frame` | Delete a marker at a frame |
+| `resolve_set_timeline_mark` | `mark_in?`, `mark_out?`, `clear?` | Set or clear mark in/out points on the timeline |
 
 ### Settings
 
@@ -149,6 +150,8 @@ Create, navigate, and configure timelines.
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `resolve_append_clips_to_timeline` | `clip_names` (comma-separated) | Append clips to the end of the timeline |
+| `resolve_insert_clip_at_frame` | `clip_name`, `record_frame`, `start_frame?`, `end_frame?`, `track_index?` | Insert a media pool clip at a specific timeline frame |
+| `resolve_delete_items` | `track_type`, `track_index`, `item_indices` (comma-separated), `ripple?` | Delete clips from the timeline by index |
 
 ---
 
@@ -164,6 +167,8 @@ Inspect and modify clips placed on the timeline. Items are addressed by `track_t
 | `resolve_get_item_properties` | `track_type`, `track_index`, `item_index` | Get all Inspector properties (Pan, Tilt, Zoom, Opacity, etc.) |
 | `resolve_get_item_property` | `track_type`, `track_index`, `item_index`, `key` | Get a single property value |
 | `resolve_set_item_property` | `track_type`, `track_index`, `item_index`, `key`, `value` | Set a property (Pan, Tilt, ZoomX, Opacity, CompositeMode, etc.) |
+| `resolve_get_item_offsets` | `track_type`, `track_index`, `item_index` | Get trim offsets, source start/end, and timeline position |
+| ~~`resolve_trim_item`~~ | — | **Disabled** — Resolve API has no setter for LeftOffset/RightOffset |
 | `resolve_set_item_clip_color` | `track_type`, `track_index`, `item_index`, `color` | Set the clip color label |
 
 ### Markers

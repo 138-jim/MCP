@@ -965,9 +965,13 @@ class Timeline:
         Returns
         -------
         int
-            The mark-in frame number, or ``-1`` if not set.
+            The mark-in frame number, or ``-1`` if not set or the
+            method is unavailable.
         """
-        return self._obj.GetMarkIn()
+        fn = getattr(self._obj, "GetMarkIn", None)
+        if not callable(fn):
+            return -1
+        return fn()
 
     def get_mark_out(self) -> int:
         """Return the mark-out frame position.
@@ -975,9 +979,13 @@ class Timeline:
         Returns
         -------
         int
-            The mark-out frame number, or ``-1`` if not set.
+            The mark-out frame number, or ``-1`` if not set or the
+            method is unavailable.
         """
-        return self._obj.GetMarkOut()
+        fn = getattr(self._obj, "GetMarkOut", None)
+        if not callable(fn):
+            return -1
+        return fn()
 
     def set_mark_in(self, frame: int) -> bool:
         """Set the mark-in point.
@@ -990,9 +998,13 @@ class Timeline:
         Returns
         -------
         bool
-            ``True`` if the mark-in was set successfully.
+            ``True`` if the mark-in was set successfully, or ``False``
+            if the method is unavailable.
         """
-        return self._obj.SetMarkIn(frame)
+        fn = getattr(self._obj, "SetMarkIn", None)
+        if not callable(fn):
+            return False
+        return bool(fn(frame))
 
     def set_mark_out(self, frame: int) -> bool:
         """Set the mark-out point.
@@ -1005,9 +1017,13 @@ class Timeline:
         Returns
         -------
         bool
-            ``True`` if the mark-out was set successfully.
+            ``True`` if the mark-out was set successfully, or ``False``
+            if the method is unavailable.
         """
-        return self._obj.SetMarkOut(frame)
+        fn = getattr(self._obj, "SetMarkOut", None)
+        if not callable(fn):
+            return False
+        return bool(fn(frame))
 
     # ------------------------------------------------------------------
     # Dolby Vision

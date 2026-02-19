@@ -266,6 +266,75 @@ def register_timeline_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
+    def resolve_delete_items(
+        track_type: str, track_index: int, item_indices: str, ripple: bool = False
+    ) -> str:
+        """Delete one or more clips from the timeline by track and index.
+
+        Args:
+            track_type: Track type (video or audio).
+            track_index: Track index (1-based).
+            item_indices: Comma-separated item indices (0-based) to delete.
+            ripple: If true, close the gap left by removed clips.
+        """
+        tl = _get_timeline(state)
+        items = tl.get_item_list_in_track(track_type, track_index)
+        indices = [int(i.strip()) for i in item_indices.split(",") if i.strip()]
+        to_delete = []
+        missing = []
+        for idx in indices:
+            if idx < len(items):
+                to_delete.append(items[idx])
+            else:
+                missing.append(str(idx))
+        if missing:
+            return f"Item indices not found: {', '.join(missing)}"
+        if not to_delete:
+            return "No items specified"
+        names = [item.get_name() for item in to_delete]
+        if tl.delete_clips(to_delete, ripple):
+            mode = " (ripple)" if ripple else ""
+            return f"Deleted{mode}: {', '.join(names)}"
+        return f"Failed to delete items: {', '.join(names)}"
+
+    @mcp.tool()
+    @resolve_tool
+    def resolve_set_timeline_mark(
+        mark_in: int = -1, mark_out: int = -1, clear: bool = False
+    ) -> str:
+        """Set or clear mark in/out points on the current timeline.
+
+        Args:
+            mark_in: Frame number for mark-in point (-1 to leave unchanged).
+            mark_out: Frame number for mark-out point (-1 to leave unchanged).
+            clear: If true, clear both mark in and mark out points instead of setting them.
+        """
+        tl = _get_timeline(state)
+        if clear:
+            # Resolve scripting API has no direct clear marks on timeline;
+            # setting to start/end frame effectively removes the range.
+            start = tl.get_start_frame()
+            end = tl.get_end_frame()
+            tl.set_mark_in(start)
+            tl.set_mark_out(end)
+            return "Cleared timeline mark in/out"
+        results = []
+        if mark_in >= 0:
+            if tl.set_mark_in(mark_in):
+                results.append(f"Mark in set to frame {mark_in}")
+            else:
+                results.append(f"Failed to set mark in to frame {mark_in}")
+        if mark_out >= 0:
+            if tl.set_mark_out(mark_out):
+                results.append(f"Mark out set to frame {mark_out}")
+            else:
+                results.append(f"Failed to set mark out to frame {mark_out}")
+        if not results:
+            return "No marks specified (both mark_in and mark_out are -1)"
+        return "\n".join(results)
+
+    @mcp.tool()
+    @resolve_tool
     def resolve_get_timeline_setting(key: str) -> str:
         """Get a timeline setting by key. Use empty string to get all settings."""
         tl = _get_timeline(state)

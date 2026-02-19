@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -38,5 +39,12 @@ def create_server() -> FastMCP:
     register_color_tools(mcp, state)
     register_audio_tools(mcp, state)
     register_deliver_tools(mcp, state)
+
+    _guide_path = Path(__file__).resolve().parent.parent.parent / "RESOLVE_GUIDE.md"
+
+    @mcp.resource("resolve://guide")
+    def get_resolve_guide() -> str:
+        """AI usage guide for the DaVinci Resolve MCP server — covers workflows, parameter conventions, and tips."""
+        return _guide_path.read_text(encoding="utf-8")
 
     return mcp
