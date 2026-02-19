@@ -297,21 +297,5 @@ def register_timeline_tools(mcp: FastMCP, state: ServerState):
             return f"Deleted{mode}: {', '.join(names)}"
         return f"Failed to delete items: {', '.join(names)}"
 
-    @mcp.tool()
-    @resolve_tool
-    def resolve_get_timeline_setting(key: str) -> str:
-        """Get a timeline setting by key. Use empty string to get all settings."""
-        tl = _get_timeline(state)
-        result = tl.get_setting(key)
-        if isinstance(result, dict):
-            return format_dict(result, "Timeline settings")
-        return f"{key}: {result}"
-
-    @mcp.tool()
-    @resolve_tool
-    def resolve_set_timeline_setting(key: str, value: str) -> str:
-        """Set a timeline setting."""
-        tl = _get_timeline(state)
-        if tl.set_setting(key, value):
-            return f"Set {key}={value}"
-        return f"Failed to set {key}"
+    # Disabled: Timeline.GetSetting / SetSetting don't exist in Resolve 20.3 Free.
+    # Use resolve_get_project_setting / resolve_set_project_setting instead.

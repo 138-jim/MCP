@@ -130,13 +130,6 @@ Create, navigate, and configure timelines.
 | `resolve_add_timeline_marker` | `frame`, `color`, `name`, `note?`, `duration?` | Add a marker at a frame |
 | `resolve_delete_timeline_marker` | `frame` | Delete a marker at a frame |
 
-### Settings
-
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `resolve_get_timeline_setting` | `key` (empty = all) | Get a timeline setting |
-| `resolve_set_timeline_setting` | `key`, `value` | Set a timeline setting |
-
 ### Generators & Titles
 
 | Tool | Parameters | Description |
