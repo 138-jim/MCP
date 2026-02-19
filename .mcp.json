@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "resolve": {
+      "command": "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3",
+      "args": ["-m", "resolve_mcp"],
+      "cwd": "/Users/jim/Documents/Github/MCP/resolve-tool",
+      "env": {
+        "PYTHONPATH": "/Users/jim/Documents/Github/MCP/resolve-tool/src"
+      }
+    }
+  }
+}
