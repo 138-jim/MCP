@@ -22,6 +22,11 @@ class MediaPoolItem:
         """
         self._obj = obj
 
+    @property
+    def raw(self):
+        """Return the underlying raw Resolve API object."""
+        return self._obj
+
     # ------------------------------------------------------------------
     # Identity
     # ------------------------------------------------------------------

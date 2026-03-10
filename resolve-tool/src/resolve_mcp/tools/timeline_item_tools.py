@@ -4,21 +4,8 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from resolve_mcp.helpers import resolve_tool, format_dict
+from resolve_mcp.helpers import resolve_tool, format_dict, get_item
 from resolve_mcp.state import ServerState
-
-
-def _get_timeline(state: ServerState):
-    return state.session.get_project_manager().get_current_project().get_current_timeline()
-
-
-def _get_item(state: ServerState, track_type: str, track_index: int, item_index: int):
-    """Get a timeline item by track and index. item_index is 0-based."""
-    tl = _get_timeline(state)
-    items = tl.get_item_list_in_track(track_type, track_index)
-    if item_index >= len(items):
-        return None
-    return items[item_index]
 
 
 def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
@@ -35,7 +22,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
             track_index: Track index (1-based).
             item_index: Item index within the track (0-based).
         """
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         props = item.get_property()
@@ -49,7 +36,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, key: str
     ) -> str:
         """Get a specific property of a timeline item (e.g. Pan, Tilt, ZoomX, Opacity)."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         val = item.get_property(key)
@@ -61,7 +48,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, key: str, value: str
     ) -> str:
         """Set a property on a timeline item (e.g. Pan, Tilt, ZoomX, Opacity, CompositeMode)."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         # Try to convert to number if applicable
@@ -82,7 +69,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Get identity/placement info for a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         lines = [
@@ -99,7 +86,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Get all markers on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         markers = item.get_markers()
@@ -117,7 +104,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         frame: int, color: str, name: str, note: str = "", duration: int = 1
     ) -> str:
         """Add a marker to a timeline item at the given frame offset."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.add_marker(frame, color, name, note, duration):
@@ -130,7 +117,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, color: str
     ) -> str:
         """Set the clip color label on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.set_clip_color(color):
@@ -143,7 +130,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """List Fusion compositions on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         names = item.get_fusion_comp_name_list()
@@ -160,7 +147,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Add a new Fusion composition to a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         comp = item.add_fusion_comp()
@@ -196,7 +183,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
             value: The value to set (numbers are auto-converted).
             comp_index: Fusion composition index (1-based, default 1).
         """
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         # Auto-convert numeric strings
@@ -232,7 +219,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
             input_name: Name of the input (e.g. 'StyledText', 'Size').
             comp_index: Fusion composition index (1-based, default 1).
         """
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         result = item.get_fusion_tool_input(tool_id, input_name, comp_index)
@@ -246,7 +233,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, version_type: str = "local"
     ) -> str:
         """List color versions on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         versions = item.get_version_name_list(version_type)
@@ -264,7 +251,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         name: str, version_type: str = "local"
     ) -> str:
         """Load a color version by name on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.load_version_by_name(name, version_type):
@@ -277,7 +264,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, mode: str = "forward"
     ) -> str:
         """Apply Magic Mask to a timeline item (Resolve 18+)."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.apply_magic_mask(mode):
@@ -300,7 +287,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
             track_index: Track index (1-based).
             item_index: Item index within the track (0-based).
         """
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         lines = [
@@ -321,7 +308,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Apply stabilization to a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.apply_stabilization():
@@ -334,7 +321,7 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Apply Smart Reframe to a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return f"Item not found at {track_type}:{track_index}:{item_index}"
         if item.apply_smart_reframe():

@@ -26,6 +26,12 @@ def create_mock_resolve() -> MagicMock:
     resolve.DeleteLayoutPreset.return_value = True
     resolve.ImportLayoutPreset.return_value = True
 
+    # Export LUT constants
+    resolve.EXPORT_LUT_17PTCUBE = 0
+    resolve.EXPORT_LUT_33PTCUBE = 1
+    resolve.EXPORT_LUT_65PTCUBE = 2
+    resolve.EXPORT_LUT_PANASONICVLUT = 3
+
     # ProjectManager
     pm = MagicMock(name="ProjectManager")
     resolve.GetProjectManager.return_value = pm
@@ -59,7 +65,12 @@ def create_mock_resolve() -> MagicMock:
     project.GetName.return_value = "MyProject"
     project.SetName.return_value = True
     project.GetUniqueId.return_value = "proj-uuid-001"
-    project.GetSetting.return_value = {}
+    _project_settings = {
+        "timelineFrameRate": "24",
+        "timelineResolutionWidth": "1920",
+        "timelineResolutionHeight": "1080",
+    }
+    project.GetSetting.side_effect = lambda key="": _project_settings.get(key, "") if key else dict(_project_settings)
     project.SetSetting.return_value = True
     project.GetTimelineCount.return_value = 2
     project.GetPresetList.return_value = ["YouTube 1080p", "ProRes Master"]
@@ -77,9 +88,11 @@ def create_mock_resolve() -> MagicMock:
     project.DeleteAllRenderJobs.return_value = True
     project.StartRendering.return_value = True
     project.IsRenderingInProgress.return_value = False
-    project.GetColorGroupsList.return_value = []
-    project.AddColorGroup.return_value = MagicMock(name="ColorGroup")
+    cg1 = _make_color_group("Group A")
+    project.GetColorGroupsList.return_value = [cg1]
+    project.AddColorGroup.return_value = cg1
     project.DeleteColorGroup.return_value = True
+    project.RefreshLUTList.return_value = True
     project.InsertAudioToCurrentTrackAtPlayhead.return_value = True
     project.LoadBurnInPreset.return_value = True
     project.ExportCurrentFrameAsStill.return_value = True
@@ -137,13 +150,16 @@ def create_mock_resolve() -> MagicMock:
     # Gallery
     gallery = MagicMock(name="Gallery")
     project.GetGallery.return_value = gallery
-    album = MagicMock(name="GalleryStillAlbum")
+    album = _make_gallery_still_album("Album 1")
     gallery.GetCurrentStillAlbum.return_value = album
     gallery.SetCurrentStillAlbum.return_value = True
     gallery.GetGalleryStillAlbums.return_value = [album]
     gallery.GetAlbumName.return_value = "Album 1"
     gallery.SetAlbumName.return_value = True
     gallery.CreateGalleryStillAlbum.return_value = album
+    pg_album = _make_gallery_still_album("PowerGrade 1")
+    gallery.GetGalleryPowerGradeAlbums.return_value = [pg_album]
+    gallery.CreateGalleryPowerGradeAlbum.return_value = pg_album
 
     # Timelines
     tl1 = _make_timeline("Timeline 1")
@@ -190,7 +206,8 @@ def _make_media_pool_item(name: str) -> MagicMock:
     item.DeleteMarkersByColor.return_value = True
     item.UpdateMarkerCustomData.return_value = True
     item.GetMarkerCustomData.return_value = ""
-    item.GetClipProperty.return_value = {"Format": "mov", "FPS": "24"}
+    _clip_props = {"Format": "mov", "FPS": "24", "Resolution": "1920x1080"}
+    item.GetClipProperty.side_effect = lambda key=None: _clip_props.get(key, "") if key else dict(_clip_props)
     item.SetClipProperty.return_value = True
     item.GetClipColor.return_value = ""
     item.SetClipColor.return_value = True
@@ -343,6 +360,11 @@ def _make_timeline_item(name: str) -> MagicMock:
     item.AssignToColorGroup.return_value = True
     item.RemoveFromColorGroup.return_value = True
 
+    item.GetCurrentVersion.return_value = {"versionName": "Version 1", "versionType": 0}
+    item.ResetAllNodeColors.return_value = True
+    item.GetIsColorOutputCacheEnabled.return_value = True
+    item.SetColorOutputCache.return_value = True
+
     item.CreateMagicMask.return_value = True
     item.Stabilize.return_value = True
     item.SmartReframe.return_value = True
@@ -363,6 +385,29 @@ def _make_timeline_item(name: str) -> MagicMock:
     item.AddTake.return_value = True
 
     return item
+
+
+def _make_color_group(name: str) -> MagicMock:
+    group = MagicMock(name=f"ColorGroup({name})")
+    group.GetName.return_value = name
+    group.SetName.return_value = True
+    group.GetClipsInTimeline.return_value = []
+    group.GetPreClipNodeGraph.return_value = _make_node_graph()
+    group.GetPostClipNodeGraph.return_value = _make_node_graph()
+    return group
+
+
+def _make_gallery_still_album(name: str) -> MagicMock:
+    album = MagicMock(name=f"GalleryStillAlbum({name})")
+    still1 = MagicMock(name="Still1")
+    still2 = MagicMock(name="Still2")
+    album.GetStills.return_value = [still1, still2]
+    album.GetLabel.return_value = "Still Label"
+    album.SetLabel.return_value = True
+    album.ImportStills.return_value = True
+    album.ExportStills.return_value = True
+    album.DeleteStills.return_value = True
+    return album
 
 
 def _make_node_graph() -> MagicMock:

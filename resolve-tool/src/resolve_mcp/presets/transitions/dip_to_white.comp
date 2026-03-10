@@ -1,0 +1,44 @@
+Composition {
+	Tools = {
+		Background1 = Background {
+			Inputs = {
+				UseFrameFormatSettings = Input { Value = 1, },
+				["TopLeftRed"] = Input { Value = 1, },
+				["TopLeftGreen"] = Input { Value = 1, },
+				["TopLeftBlue"] = Input { Value = 1, },
+				["TopLeftAlpha"] = Input { Value = 1, },
+			},
+			ViewInfo = OperatorInfo { Pos = { 385, 16.5 } },
+		},
+		MediaIn1 = Loader {
+			Inputs = {
+				["Gamut.SLogVersion"] = Input { Value = FuID { "SLog2" }, },
+			},
+			ViewInfo = OperatorInfo { Pos = { 220, 82.5 } },
+		},
+		Merge1 = Merge {
+			Inputs = {
+				Blend = Input { Expression = "iif(time < 15, time / 15, iif(time > (comp.RenderEnd - 15), (comp.RenderEnd - time) / 15, 1.0))", },
+				Background = Input {
+					SourceOp = "Background1",
+					Source = "Output",
+				},
+				Foreground = Input {
+					SourceOp = "MediaIn1",
+					Source = "Output",
+				},
+				PerformDepthMerge = Input { Value = 0, },
+			},
+			ViewInfo = OperatorInfo { Pos = { 385, 82.5 } },
+		},
+		MediaOut1 = Saver {
+			Inputs = {
+				Input = Input {
+					SourceOp = "Merge1",
+					Source = "Output",
+				},
+			},
+			ViewInfo = OperatorInfo { Pos = { 550, 82.5 } },
+		},
+	},
+}

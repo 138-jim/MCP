@@ -4,24 +4,8 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from resolve_mcp.helpers import resolve_tool, format_list
+from resolve_mcp.helpers import resolve_tool, format_list, get_project, get_item
 from resolve_mcp.state import ServerState
-
-
-def _get_project(state: ServerState):
-    return state.session.get_project_manager().get_current_project()
-
-
-def _get_timeline(state: ServerState):
-    return _get_project(state).get_current_timeline()
-
-
-def _get_item(state: ServerState, track_type: str, track_index: int, item_index: int):
-    tl = _get_timeline(state)
-    items = tl.get_item_list_in_track(track_type, track_index)
-    if item_index >= len(items):
-        return None
-    return items[item_index]
 
 
 def register_color_tools(mcp: FastMCP, state: ServerState):
@@ -32,7 +16,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Get the number of color nodes on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()
@@ -46,7 +30,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int, node_index: int
     ) -> str:
         """Get the LUT applied to a specific node (1-based index)."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()
@@ -62,7 +46,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         node_index: int, lut_path: str
     ) -> str:
         """Apply a LUT to a specific node (1-based index)."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()
@@ -79,7 +63,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         node_index: int, label: str
     ) -> str:
         """Set the label of a color node."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()
@@ -95,7 +79,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         track_type: str, track_index: int, item_index: int
     ) -> str:
         """Reset all color grading on a timeline item."""
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()
@@ -109,7 +93,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_list_color_groups() -> str:
         """List all color groups in the current project."""
-        proj = _get_project(state)
+        proj = get_project(state)
         groups = proj.get_color_group_list()
         names = [g.get_name() for g in groups]
         return format_list(names, "color groups")
@@ -118,7 +102,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_add_color_group(name: str) -> str:
         """Create a new color group."""
-        proj = _get_project(state)
+        proj = get_project(state)
         group = proj.add_color_group(name)
         return f"Created color group: {group.get_name()}"
 
@@ -126,7 +110,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_list_gallery_albums() -> str:
         """List all still albums in the gallery."""
-        proj = _get_project(state)
+        proj = get_project(state)
         gallery = proj.get_gallery()
         albums = gallery.get_gallery_still_albums()
         names = [gallery.get_album_name(a) for a in albums]
@@ -136,7 +120,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_export_still(path: str) -> str:
         """Export the current frame as a still image."""
-        proj = _get_project(state)
+        proj = get_project(state)
         if proj.export_current_frame_as_still(path):
             return f"Exported still to {path}"
         return "Failed to export still"
@@ -152,7 +136,7 @@ def register_color_tools(mcp: FastMCP, state: ServerState):
         Args:
             grade_mode: 0=No keyframes, 1=Source timecode, 2=Start timecode.
         """
-        item = _get_item(state, track_type, track_index, item_index)
+        item = get_item(state, track_type, track_index, item_index)
         if item is None:
             return "Item not found"
         graph = item.get_node_graph()

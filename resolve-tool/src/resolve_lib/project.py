@@ -536,6 +536,24 @@ class Project:
         return self._obj.DeleteColorGroup(group._obj)
 
     # ------------------------------------------------------------------
+    # LUT Management
+    # ------------------------------------------------------------------
+
+    def refresh_lut_list(self) -> bool:
+        """Refresh the LUT list for the project.
+
+        Returns
+        -------
+        bool
+            ``True`` if the LUT list was refreshed, or ``False`` if the
+            method is unavailable.
+        """
+        fn = getattr(self._obj, "RefreshLUTList", None)
+        if not callable(fn):
+            return False
+        return bool(fn())
+
+    # ------------------------------------------------------------------
     # Miscellaneous
     # ------------------------------------------------------------------
 

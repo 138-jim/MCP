@@ -81,14 +81,14 @@ resolve_create_timeline("My Edit v1")
 # 3. Place clips with precise source ranges and timeline positions
 resolve_insert_clip_at_frame(
     clip_name="clip_a.mp4",
-    record_frame=86400,      # timeline frame (01:00:00:00 at 24fps)
+    record_frame=0,          # timeline starts at frame 0
     start_frame=100,         # source in
     end_frame=500,           # source out
     track_index=1
 )
 resolve_insert_clip_at_frame(
     clip_name="clip_b.mp4",
-    record_frame=86800,      # next position (86400 + 400 frames)
+    record_frame=400,        # next position (0 + 400 frames)
     start_frame=0,
     end_frame=300,
     track_index=1
@@ -125,6 +125,29 @@ resolve_get_item_property("video", 1, 0, "ZoomX")       → single property
 resolve_set_item_property("video", 1, 0, "Opacity", "50")
 ```
 Common property keys: `Pan`, `Tilt`, `ZoomX`, `ZoomY`, `Opacity`, `CompositeMode`.
+
+## AI Clip Operations
+
+### Smart Reframe
+
+```
+resolve_list_items_in_track("video", 1)         → find target clip index
+resolve_smart_reframe("video", 1, 0)            → apply to first clip on V1
+```
+
+- Works on timeline items addressed by `track_type`, `track_index`, and `item_index`.
+- Use `track_type="video"` for normal reframing workflows.
+- Returns `Smart Reframe applied` on success.
+- Returns `Failed to apply Smart Reframe` if Resolve rejects the operation.
+- Returns `Item not found at ...` if indexing is wrong.
+
+### Stabilization (related)
+
+```
+resolve_stabilize_clip("video", 1, 0)
+```
+
+- Uses the same item-addressing pattern as Smart Reframe.
 
 ## Media Pool
 
@@ -175,6 +198,109 @@ resolve_set_fusion_tool_input(
 ```
 Common TextPlus inputs: `StyledText`, `Size`, `Font`, `ColorRed`, `ColorGreen`, `ColorBlue`.
 
+### Easy Text+ overlays (single tool)
+For common "title over video" workflows, use:
+```
+resolve_add_text_overlay(
+    text="My Title",
+    overlay_track=2,
+    size="0.10",
+    font="Open Sans"
+)
+```
+This tool inserts a Fusion `Text+` title and sets `StyledText` (and optional size/font) in one call.
+If `start_timecode` is omitted, it auto-aligns to the first clip start on V1.
+
+## Transitions (Fusion-Based)
+
+The Resolve scripting API has no built-in method to apply traditional timeline transitions. This server provides two approaches:
+
+1. **Single-clip presets** — Fusion `.comp` files that replace a clip's composition (fade in/out, dip to black/white). Non-destructive, affects one clip.
+2. **Two-clip overlay transitions** — rearrange two adjacent clips onto separate tracks with an overlap, then apply Fusion comps to individual clips (cross dissolve, blur). Clips remain as regular media clips with Fusion compositions — no Fusion clips are created.
+
+### Single-clip preset transitions
+
+#### Listing available presets
+```
+resolve_list_available_transitions    → fade_in, fade_out, dip_to_black, dip_to_white
+```
+
+#### Applying a preset to a clip
+```
+resolve_list_items_in_track("video", 1)                        → find the clip
+resolve_apply_transition("video", 1, 0, "fade_in")            → fade in from black on first clip
+resolve_apply_transition("video", 1, 4, "fade_out")           → fade out to black on last clip
+resolve_apply_transition("video", 1, 2, "dip_to_black")       → dip to black mid-clip
+```
+
+Each preset replaces the clip's Fusion composition with a node graph that uses Fusion expressions (`comp.RenderEnd`) to adapt timing to the trimmed clip duration. Default transition duration is ~30 frames from clip start/end.
+
+#### Using a custom .comp preset
+```
+resolve_import_transition_preset("video", 1, 0, "/path/to/my_wipe.comp")
+```
+
+### Two-clip overlay transitions
+
+Both `resolve_apply_cross_dissolve` and `resolve_apply_blur_transition` use an overlay approach:
+
+```
+V2: |---- Clip B (Fusion comp: opacity ramp 0→1) ----|
+V1: |--- Clip A ---|
+    ^              ^                                   ^
+    A_start     cut point                          B_end
+               (overlap region)
+```
+
+1. Verify the two clips are adjacent and clip B has enough source material (`left_offset >= dissolve_duration`)
+2. Delete clip B from the original track
+3. Re-insert clip B on a higher video track, shifted back by `dissolve_duration` frames (using earlier source material)
+4. Apply Fusion `.comp` presets to the individual clips (generated from parameterized Python templates)
+
+Clip B's comp uses a transparent `Background` node merged with the media via `Merge.Blend` — at Blend=0, clip A on the lower track shows through; at Blend=1, clip B is fully opaque.
+
+**Effect on timeline length:** The total timeline duration does not change. Clip B is extended backwards using `dissolve_duration` frames of earlier source material to fill the overlap region.
+
+**Prerequisites:** Clip B must have enough unused source material before its current in-point. Check with `resolve_get_item_offsets` — the `LeftOffset` value must be >= `dissolve_duration`. If `LeftOffset` is 0, the tool will return an error and not modify the timeline.
+
+#### Cross dissolve
+```
+resolve_list_items_in_track("video", 1)                        → find adjacent clips
+resolve_get_item_offsets("video", 1, 1)                        → check LeftOffset >= dissolve_duration
+resolve_apply_cross_dissolve(
+    track_index=1,
+    item_index_a=0,
+    item_index_b=1,
+    dissolve_duration=30
+)
+```
+Applies a Fusion comp to clip B only — ramps `Merge.Blend` from 0→1 over the first `dissolve_duration` frames. Clip A stays untouched on the lower track and shows through the transparent background during the ramp.
+
+#### Blur transition
+```
+resolve_list_items_in_track("video", 1)                        → find adjacent clips
+resolve_get_item_offsets("video", 1, 1)                        → check LeftOffset >= dissolve_duration
+resolve_apply_blur_transition(
+    track_index=1,
+    item_index_a=0,
+    item_index_b=1,
+    dissolve_duration=30,
+    blur_size=15.0
+)
+```
+Applies Fusion comps to both clips:
+- **Clip A** gets a blur that ramps from 0 to `blur_size` over the last `dissolve_duration` frames (stays fully opaque, just blurs)
+- **Clip B** gets both a blur ramp (`blur_size` → 0) and an opacity ramp (0 → 1) over the first `dissolve_duration` frames
+- `blur_size` controls the maximum blur amount (default 15.0); higher values = more dramatic blur
+
+#### Render cache
+After applying overlay transitions, clips with Fusion comps may need caching. Fix this by:
+- Right-click the clip → **Render Cache Fusion Output** → **On**
+- Or enable globally: **Playback → Render Cache → Smart**
+
+### Creating custom presets
+Place `.comp` files in the server's `presets/transitions/` directory. Each `.comp` should use the standard Fusion node graph pattern: `MediaIn1` (as `Loader`) → effect nodes → `MediaOut1` (as `Saver`). Use `comp.RenderEnd` in Fusion expressions so timing adapts to the trimmed clip duration on the timeline. `comp.GlobalEnd` refers to the full source clip which may extend beyond the visible trim.
+
 ## Markers
 
 Markers exist on both timelines and individual clips:
@@ -223,6 +349,126 @@ resolve_list_color_versions("video", 1, 0, version_type="local")
 resolve_load_color_version("video", 1, 0, name="Version 2", version_type="local")
 ```
 
+## Color Nodes (Detailed)
+
+### Browsing and applying LUTs
+
+```
+resolve_list_lut_folders                          → browse LUT categories
+resolve_list_lut_folders(subfolder="Arri")        → drill into a category
+resolve_search_luts(search="rec709")              → find LUTs by name
+resolve_apply_lut_by_name("video", 1, 0, node_index=1, search="rec709")  → search + apply in one step
+resolve_set_node_lut("video", 1, 0, node_index=1, lut_path="/path/to/lut.cube")  → apply by exact path
+resolve_refresh_lut_list                          → refresh after adding new LUT files
+```
+
+### CDL values
+
+```
+resolve_get_cdl("video", 1, 0)
+resolve_set_cdl("video", 1, 0, slope="1.1 1.0 0.9", offset="0.01 0 -0.01", saturation="1.2")
+```
+
+Slope, offset, and power are RGB triplets as space-separated strings. Node index defaults to 1.
+
+### Node control
+
+```
+resolve_get_node_count("video", 1, 0)
+resolve_get_node_label("video", 1, 0, node_index=1)
+resolve_set_node_enabled("video", 1, 0, node_index=1, enabled=False)
+resolve_get_node_cache_mode("video", 1, 0, node_index=1)     → 0=None, 1=Smart, 2=On
+resolve_set_node_cache_mode("video", 1, 0, node_index=1, mode=2)  → cache on
+resolve_get_tools_in_node("video", 1, 0, node_index=1)
+```
+
+### Copying and exporting grades
+
+```
+resolve_copy_grades("video", 1, source_item_index=0, target_item_indices="1,2,3")
+resolve_export_lut("video", 1, 0, export_type="LUT_33PTCUBE", path="/path/output.cube")
+```
+
+Export types: `LUT_17PTCUBE`, `LUT_33PTCUBE`, `LUT_65PTCUBE`, `LUT_PANASONICVLUT`.
+
+## Color Groups
+
+Color groups let you organize clips that share grading characteristics (e.g., all A-cam shots, all interviews).
+
+```
+resolve_list_color_groups
+resolve_add_color_group("A-Cam")
+resolve_set_color_group_name(current_name="A-Cam", new_name="Main Camera")
+resolve_get_clips_in_color_group("A-Cam")           → clips in current timeline
+```
+
+### Assigning clips to groups
+
+```
+resolve_assign_to_color_group("video", 1, 0, group_name="A-Cam")
+resolve_get_item_color_group("video", 1, 0)          → check assignment
+resolve_remove_from_color_group("video", 1, 0)       → unassign
+```
+
+### Group node graphs
+
+Color groups have pre-clip and post-clip node graphs that affect all clips in the group:
+
+```
+resolve_get_color_group_pre_node_graph("A-Cam")
+resolve_get_color_group_post_node_graph("A-Cam")
+```
+
+## Gallery & Stills
+
+### Grabbing stills
+
+```
+resolve_set_page("color")
+resolve_grab_still                                    → grab current frame
+resolve_grab_all_stills(still_frame_source=1)         → grab from all clips (1=first, 2=middle)
+```
+
+### Album management
+
+```
+resolve_list_gallery_albums                           → list still albums
+resolve_get_current_still_album
+resolve_set_current_still_album(album_index=2)        → 1-based index
+resolve_create_still_album                            → new album
+resolve_create_powergrade_album                       → new PowerGrade album
+resolve_set_album_name(album_index=1, name="Selects")
+resolve_list_powergrade_albums
+```
+
+### Working with stills
+
+```
+resolve_list_stills                                   → list stills in current album
+resolve_get_still_label(still_index=1)                → 1-based index
+resolve_set_still_label(still_index=1, label="Hero")
+resolve_import_stills(paths="/path/to/ref1.dpx,/path/to/ref2.dpx")
+resolve_export_stills(still_indices="1,2", path="/exports/", format="png")
+resolve_delete_stills(still_indices="3,4")
+```
+
+## Color Versions
+
+Color versions let you save multiple grade iterations on the same clip.
+
+```
+resolve_list_color_versions("video", 1, 0, version_type="local")
+resolve_get_current_color_version("video", 1, 0)
+resolve_add_color_version("video", 1, 0, name="Warm Look", version_type="local")
+resolve_load_color_version("video", 1, 0, name="Warm Look", version_type="local")
+resolve_rename_color_version("video", 1, 0, old_name="Version 1", new_name="Original")
+resolve_delete_color_version("video", 1, 0, name="Old Version", version_type="local")
+```
+
+Version types: `"local"` (default) or `"remote"` (for shared/collaborative grading).
+
+---
+
 ## Rendering / Deliver
 
 ### Typical render workflow
@@ -252,17 +498,59 @@ resolve_list_render_jobs     → see all queued jobs
 
 ## Audio / Fairlight
 
+### Insert external audio at playhead
+
 ```
-resolve_insert_audio_at_playhead(file_path="/path/audio.wav", start_offset=0, duration=0)
+resolve_set_page("edit")  # or "fairlight"
+resolve_set_current_timecode("00:00:10:00")
+resolve_insert_audio_at_playhead(
+    file_path="/path/audio.wav",
+    start_offset=0,
+    duration=0
+)
+```
+
+- `file_path` must be an absolute path to an audio file.
+- `start_offset` and `duration` are in **frames**.
+- `duration=0` means "use full remaining source duration".
+- Audio is inserted to the **currently targeted audio track** at the playhead.
+
+### Load a burn-in preset
+
+```
 resolve_load_burn_in_preset("Timecode")
 ```
-Set `duration=0` for full clip length.
+
+- Loads a project burn-in preset (useful before render export).
+- Fails if the preset name does not exist in the current project.
+
+### Related tools for audio tracks
+
+These are generic timeline tools, but they support `track_type="audio"`:
+
+```
+resolve_get_track_count("audio")
+resolve_add_track("audio")
+resolve_get_track_name("audio", 1)
+resolve_set_track_name("audio", 1, "Dialog")
+resolve_list_items_in_track("audio", 1)
+resolve_delete_items(track_type="audio", track_index=1, item_indices=[0], ripple=False)
+```
+
+For clip-level info/operations on audio clips, use timeline-item tools with
+`track_type="audio"` (for example `resolve_get_item_info`, `resolve_get_item_properties`, and markers).
+
+### Current limitations
+
+- Voice isolation tools are disabled in this server (`resolve_voice_isolation_timeline`, `resolve_voice_isolation_clip`).
+- Subtitle-from-audio is also disabled (`resolve_create_subtitle_from_audio`).
 
 ## Timecodes and Frames
 
-- **Timecode format**: `"HH:MM:SS:FF"` (e.g., `"01:00:05:00"`).
+- **Timelines start at frame 0** (timecode `00:00:00:00`), not `01:00:00:00`.
+- **Timecode format**: `"HH:MM:SS:FF"` (e.g., `"00:00:05:00"`).
 - **Frames**: Integer values. Use `resolve_get_current_timeline` to see the frame range.
-- Move the playhead: `resolve_set_current_timecode("01:00:10:00")`.
+- Move the playhead: `resolve_set_current_timecode("00:00:10:00")`.
 
 ## Tips and Pitfalls
 
@@ -278,12 +566,10 @@ Set `duration=0` for full clip length.
 
 6. **Clip names must match exactly** — When referencing clips by name (for media pool operations), the name must be an exact match. Use `resolve_list_clips_in_bin` to get the correct names.
 
-7. **Save often** — Call `resolve_save_project` periodically. There is no auto-save through the API.
+7. **Comma-separated inputs** — Several tools accept comma-separated strings instead of arrays: `resolve_import_media`, `resolve_append_clips_to_timeline`, `resolve_delete_items` (item_indices), and `resolve_insert_clip_at_frame`.
 
-8. **Comma-separated inputs** — Several tools accept comma-separated strings instead of arrays: `resolve_import_media`, `resolve_append_clips_to_timeline`, `resolve_delete_items` (item_indices), and `resolve_insert_clip_at_frame`.
+8. **Export type constants** — For `resolve_export_timeline`, use the format name string (e.g., `"EDL"`, `"AAF"`, `"FCP_7_XML"`), not a numeric constant.
 
-9. **Export type constants** — For `resolve_export_timeline`, use the format name string (e.g., `"EDL"`, `"AAF"`, `"FCP_7_XML"`), not a numeric constant.
+9. **The connection is lazy** — The first tool call triggers connection to Resolve. If Resolve isn't running, you'll get a connection error. No explicit connect step needed.
 
-10. **The connection is lazy** — The first tool call triggers connection to Resolve. If Resolve isn't running, you'll get a connection error. No explicit connect step needed.
-
-11. **Export EDLs for interchange** — After assembling a timeline, use `resolve_export_timeline` to export a real EDL if you need the cut list in a standard format.
+10. **Export EDLs for interchange** — After assembling a timeline, use `resolve_export_timeline` to export a real EDL if you need the cut list in a standard format.

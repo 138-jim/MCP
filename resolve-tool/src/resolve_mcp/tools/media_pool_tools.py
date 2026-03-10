@@ -4,12 +4,24 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from resolve_mcp.helpers import resolve_tool, format_list, format_dict
+from resolve_mcp.helpers import resolve_tool, format_list, format_dict, get_project, get_pool, get_timeline, find_clip_by_name, auto_scale_to_timeline
 from resolve_mcp.state import ServerState
 
 
-def _get_pool(state: ServerState):
-    return state.session.get_project_manager().get_current_project().get_media_pool()
+def _timeline_info(state: ServerState, tl) -> str:
+    """Return a summary string of timeline properties."""
+    proj = get_project(state)
+    fps = proj.get_setting("timelineFrameRate")
+    width = proj.get_setting("timelineResolutionWidth")
+    height = proj.get_setting("timelineResolutionHeight")
+    lines = [
+        f"Name: {tl.get_name()}",
+        f"Frames: {tl.get_start_frame()}-{tl.get_end_frame()}",
+        f"Start TC: {tl.get_start_timecode()}",
+        f"Frame Rate: {fps}",
+        f"Resolution: {width}x{height}",
+    ]
+    return "\n".join(lines)
 
 
 def register_media_pool_tools(mcp: FastMCP, state: ServerState):
@@ -18,7 +30,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_get_current_bin() -> str:
         """Get the name of the currently selected media pool bin/folder."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         return f"Current bin: {folder.get_name()}"
 
@@ -26,7 +38,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_list_bins() -> str:
         """List subfolders (bins) in the current media pool folder."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         subs = folder.get_subfolders()
         names = [s.get_name() for s in subs]
@@ -36,7 +48,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_create_bin(name: str) -> str:
         """Create a new bin (subfolder) in the current media pool folder."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         parent = pool.get_current_folder()
         new_folder = pool.add_subfolder(name, parent)
         return f"Created bin: {new_folder.get_name()}"
@@ -45,7 +57,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_set_current_bin(bin_name: str) -> str:
         """Set the current media pool bin by name. Searches subfolders of root."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         root = pool.get_root_folder()
         target = _find_folder(root, bin_name)
         if target is None:
@@ -57,7 +69,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_list_clips_in_bin() -> str:
         """List all clips in the current media pool bin."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         clips = folder.get_clips()
         names = [c.get_name() for c in clips]
@@ -65,18 +77,21 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
-    def resolve_import_media(paths: str) -> str:
-        """Import media files into the current bin. Paths are comma-separated."""
-        pool = _get_pool(state)
-        path_list = [p.strip() for p in paths.split(",") if p.strip()]
-        items = pool.import_media(path_list)
+    def resolve_import_media(paths: list[str]) -> str:
+        """Import media files into the current bin.
+
+        Args:
+            paths: List of file paths to import.
+        """
+        pool = get_pool(state)
+        items = pool.import_media(paths)
         return f"Imported {len(items)} clip(s)"
 
     @mcp.tool()
     @resolve_tool
     def resolve_get_clip_metadata(clip_name: str, key: str = "") -> str:
         """Get metadata for a clip by name. If key is empty, returns all metadata."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         if key:
@@ -87,7 +102,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_set_clip_metadata(clip_name: str, key: str, value: str) -> str:
         """Set a metadata field on a clip."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         if clip.set_metadata(key, value):
@@ -98,7 +113,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_get_clip_markers(clip_name: str) -> str:
         """Get all markers on a media pool clip."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         markers = clip.get_markers()
@@ -115,7 +130,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
         clip_name: str, frame: int, color: str, name: str, note: str = "", duration: int = 1
     ) -> str:
         """Add a marker to a media pool clip."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         if clip.add_marker(frame, color, name, note, duration):
@@ -126,7 +141,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_set_clip_color(clip_name: str, color: str) -> str:
         """Set the clip color label on a media pool clip."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         if clip.set_clip_color(color):
@@ -137,7 +152,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_add_clip_flag(clip_name: str, color: str) -> str:
         """Add a flag to a media pool clip."""
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         if clip.add_flag(color):
@@ -148,26 +163,25 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_create_timeline(name: str) -> str:
         """Create an empty timeline."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         tl = pool.create_empty_timeline(name)
-        return f"Created timeline: {tl.get_name()}"
+        return f"Created timeline\n{_timeline_info(state, tl)}"
 
     @mcp.tool()
     @resolve_tool
-    def resolve_create_timeline_from_clips(name: str, clip_names: str) -> str:
+    def resolve_create_timeline_from_clips(name: str, clip_names: list[str]) -> str:
         """Create a new timeline from media pool clips.
 
         Args:
             name: Name for the new timeline.
-            clip_names: Comma-separated clip names from the current bin.
+            clip_names: List of clip names from the current bin.
         """
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         all_clips = {c.get_name(): c for c in folder.get_clips()}
-        names = [n.strip() for n in clip_names.split(",") if n.strip()]
         selected = []
         missing = []
-        for n in names:
+        for n in clip_names:
             if n in all_clips:
                 selected.append(all_clips[n])
             else:
@@ -177,23 +191,44 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
         if not selected:
             return "No clips specified"
         tl = pool.create_timeline_from_clips(name, selected)
-        return f"Created timeline '{tl.get_name()}' with {len(selected)} clip(s)"
+        msg = f"Created timeline with {len(selected)} clip(s)\n{_timeline_info(state, tl)}"
+        proj = get_project(state)
+        timeline_fps = proj.get_setting("timelineFrameRate")
+        if timeline_fps:
+            mismatched = []
+            for c in selected:
+                clip_fps = c.get_clip_property("FPS")
+                if clip_fps and str(clip_fps) != str(timeline_fps):
+                    mismatched.append(f"{c.get_name()} ({clip_fps})")
+            if mismatched:
+                msg += f"\n  WARNING: timeline fps is {timeline_fps} but these clips differ: {', '.join(mismatched)}"
+        tl_width = proj.get_setting("timelineResolutionWidth")
+        tl_height = proj.get_setting("timelineResolutionHeight")
+        if tl_width and tl_height:
+            tl_res = f"{tl_width}x{tl_height}"
+            res_mismatched = []
+            for c in selected:
+                clip_res = c.get_clip_property("Resolution")
+                if clip_res and str(clip_res) != tl_res:
+                    res_mismatched.append(f"{c.get_name()} ({clip_res})")
+            if res_mismatched:
+                msg += f"\n  WARNING: timeline resolution is {tl_res} but these clips differ: {', '.join(res_mismatched)}"
+        return msg
 
     @mcp.tool()
     @resolve_tool
-    def resolve_append_clips_to_timeline(clip_names: str) -> str:
+    def resolve_append_clips_to_timeline(clip_names: list[str]) -> str:
         """Append media pool clips to the end of the current timeline.
 
         Args:
-            clip_names: Comma-separated clip names from the current bin.
+            clip_names: List of clip names from the current bin.
         """
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         all_clips = {c.get_name(): c for c in folder.get_clips()}
-        names = [n.strip() for n in clip_names.split(",") if n.strip()]
         selected = []
         missing = []
-        for n in names:
+        for n in clip_names:
             if n in all_clips:
                 selected.append(all_clips[n])
             else:
@@ -202,8 +237,18 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
             return f"Clips not found: {', '.join(missing)}"
         if not selected:
             return "No clips specified"
+        tl = get_timeline(state)
+        video_before = len(tl.get_item_list_in_track("video", 1))
         result = pool.append_to_timeline(selected)
-        return f"Appended {len(result)} clip(s) to timeline"
+        msg = f"Appended {len(result)} clip(s) to timeline"
+        # Auto-scale newly added timeline items
+        video_after = tl.get_item_list_in_track("video", 1)
+        new_items = video_after[video_before:]
+        if new_items:
+            scaled = auto_scale_to_timeline(state, new_items)
+            if scaled:
+                msg += f"\n  Auto-scaled {scaled} clip(s) to match timeline resolution"
+        return msg
 
     @mcp.tool()
     @resolve_tool
@@ -213,47 +258,96 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
         start_frame: int = -1,
         end_frame: int = -1,
         track_index: int = 1,
+        media_type: int = 1,
     ) -> str:
         """Insert a media pool clip at a specific timeline frame position.
 
         Places a clip from the current bin onto the timeline at the given
         record frame. Optionally specify source in/out points and target
-        video track.
+        track.
 
         Args:
             clip_name: Name of the clip in the current media pool bin.
             record_frame: Timeline frame where the clip should be placed.
             start_frame: Source start frame (-1 to use clip default).
             end_frame: Source end frame (-1 to use clip default).
-            track_index: Video track index (1-based, default 1).
+            track_index: Track index (1-based, default 1).
+            media_type: 1 for video (default), 2 for audio-only.
         """
-        clip = _find_clip_by_name(state, clip_name)
+        clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
         clip_info: dict = {
-            "mediaPoolItem": clip._obj,
+            "mediaPoolItem": clip.raw,
             "recordFrame": record_frame,
             "trackIndex": track_index,
+            "mediaType": media_type,
         }
         if start_frame >= 0:
             clip_info["startFrame"] = start_frame
         if end_frame >= 0:
             clip_info["endFrame"] = end_frame
-        pool = _get_pool(state)
-        proj = state.session.get_project_manager().get_current_project()
+        pool = get_pool(state)
+        proj = get_project(state)
         tl = proj.get_current_timeline()
-        before = len(tl.get_item_list_in_track("video", track_index))
+        track_type = "audio" if media_type == 2 else "video"
+        before = len(tl.get_item_list_in_track(track_type, track_index))
         pool.append_to_timeline([clip_info])
-        after = len(tl.get_item_list_in_track("video", track_index))
-        if after > before:
-            return f"Inserted '{clip_name}' at frame {record_frame} on track V{track_index}"
-        return f"Failed to insert '{clip_name}' at frame {record_frame} — track may have existing content at that position"
+        items = tl.get_item_list_in_track(track_type, track_index)
+        if len(items) <= before:
+            return f"Failed to insert '{clip_name}' at frame {record_frame} -- track may have existing content at that position"
+        # Auto-scale new items to match timeline resolution
+        new_items = items[before:]
+        scaled = auto_scale_to_timeline(state, new_items)
+        # Check for frame rate mismatch
+        track_label = f"A{track_index}" if media_type == 2 else f"V{track_index}"
+        msg = f"Inserted '{clip_name}' at frame {record_frame} on track {track_label}"
+        if scaled:
+            msg += f"\n  Auto-scaled to match timeline resolution"
+        timeline_fps = proj.get_setting("timelineFrameRate")
+        clip_fps = clip.get_clip_property("FPS")
+        if clip_fps and timeline_fps and str(clip_fps) != str(timeline_fps):
+            msg += f"\n  WARNING: clip fps ({clip_fps}) does not match timeline fps ({timeline_fps})"
+        tl_width = proj.get_setting("timelineResolutionWidth")
+        tl_height = proj.get_setting("timelineResolutionHeight")
+        if tl_width and tl_height:
+            tl_res = f"{tl_width}x{tl_height}"
+            clip_res = clip.get_clip_property("Resolution")
+            if clip_res and str(clip_res) != tl_res:
+                msg += f"\n  WARNING: clip resolution ({clip_res}) does not match timeline resolution ({tl_res})"
+        # Check for gaps with neighbors
+        if len(items) >= 2:
+            # Sort items by timeline start position
+            sorted_items = sorted(items, key=lambda it: it.get_start())
+            for i, it in enumerate(sorted_items):
+                if it.get_start() == record_frame or (
+                    i > 0 and sorted_items[i - 1].get_end() != it.get_start()
+                    and it.get_name() == clip_name
+                ):
+                    # Check gap before this clip
+                    if i > 0:
+                        prev_end = sorted_items[i - 1].get_end()
+                        this_start = it.get_start()
+                        if this_start > prev_end:
+                            gap = this_start - prev_end
+                            msg += f"\n  WARNING: {gap}-frame gap before this clip (prev clip ends at {prev_end}, this starts at {this_start})"
+                            msg += "\n  TIP: Often this is caused by mismatched framerates between your timeline and footage — check that first."
+                    # Check gap after this clip
+                    if i < len(sorted_items) - 1:
+                        this_end = it.get_end()
+                        next_start = sorted_items[i + 1].get_start()
+                        if next_start > this_end:
+                            gap = next_start - this_end
+                            msg += f"\n  WARNING: {gap}-frame gap after this clip (this ends at {this_end}, next starts at {next_start})"
+                            msg += "\n  TIP: Often this is caused by mismatched framerates between your timeline and footage — check that first."
+                    break
+        return msg
 
     @mcp.tool()
     @resolve_tool
     def resolve_import_timeline(path: str) -> str:
         """Import a timeline from a file (AAF, EDL, XML, FCPXML, OTIO, etc.)."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         tl = pool.import_timeline_from_file(path)
         return f"Imported timeline: {tl.get_name()}"
 
@@ -261,7 +355,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
     @resolve_tool
     def resolve_transcribe_bin() -> str:
         """Transcribe audio for all clips in the current bin."""
-        pool = _get_pool(state)
+        pool = get_pool(state)
         folder = pool.get_current_folder()
         if folder.transcribe_audio():
             return "Transcription started"
@@ -276,14 +370,4 @@ def _find_folder(root, name: str):
         found = _find_folder(sub, name)
         if found is not None:
             return found
-    return None
-
-
-def _find_clip_by_name(state: ServerState, name: str):
-    """Find a clip by name in the current bin."""
-    pool = _get_pool(state)
-    folder = pool.get_current_folder()
-    for clip in folder.get_clips():
-        if clip.get_name() == name:
-            return clip
     return None

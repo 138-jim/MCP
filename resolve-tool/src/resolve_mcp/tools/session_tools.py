@@ -67,6 +67,14 @@ def register_session_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
+    def resolve_reconnect() -> str:
+        """Force reconnection to DaVinci Resolve. Use if Resolve was restarted."""
+        state.disconnect()
+        state.connect()
+        return f"Reconnected to DaVinci Resolve {state.session.get_version()}"
+
+    @mcp.tool()
+    @resolve_tool
     def resolve_quit() -> str:
         """Quit DaVinci Resolve."""
         state.session.quit()

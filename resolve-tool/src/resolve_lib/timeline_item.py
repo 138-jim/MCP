@@ -5,6 +5,8 @@ from __future__ import annotations
 from resolve_lib.exceptions import ResolveOperationError
 from resolve_lib.validators import validate_node_index
 
+_VER_TYPE = {"local": 0, "remote": 1}
+
 
 class TimelineItem:
     """Wraps a Resolve TimelineItem API object.
@@ -730,7 +732,7 @@ class TimelineItem:
         fn = getattr(self._obj, "GetVersionNameList", None)
         if not callable(fn):
             return []
-        result = fn(version_type)
+        result = fn(_VER_TYPE.get(version_type, version_type))
         return result if result is not None else []
 
     def load_version_by_name(
@@ -750,7 +752,7 @@ class TimelineItem:
         bool
             ``True`` if the version was loaded successfully.
         """
-        return self._obj.LoadVersionByName(name, version_type)
+        return self._obj.LoadVersionByName(name, _VER_TYPE.get(version_type, version_type))
 
     def add_version(self, name: str, version_type: str = "local") -> bool:
         """Create a new colour version.
@@ -767,7 +769,7 @@ class TimelineItem:
         bool
             ``True`` if the version was created successfully.
         """
-        return self._obj.AddVersion(name, version_type)
+        return self._obj.AddVersion(name, _VER_TYPE.get(version_type, version_type))
 
     def rename_version_by_name(
         self, old_name: str, new_name: str, version_type: str = "local"
@@ -788,7 +790,7 @@ class TimelineItem:
         bool
             ``True`` if the version was renamed successfully.
         """
-        return self._obj.RenameVersionByName(old_name, new_name, version_type)
+        return self._obj.RenameVersionByName(old_name, new_name, _VER_TYPE.get(version_type, version_type))
 
     def delete_version_by_name(
         self, name: str, version_type: str = "local"
@@ -807,7 +809,7 @@ class TimelineItem:
         bool
             ``True`` if the version was deleted successfully.
         """
-        return self._obj.DeleteVersionByName(name, version_type)
+        return self._obj.DeleteVersionByName(name, _VER_TYPE.get(version_type, version_type))
 
     # ------------------------------------------------------------------
     # CDL
@@ -912,6 +914,61 @@ class TimelineItem:
             return None
         obj = fn()
         return Graph(obj) if obj else None
+
+    # ------------------------------------------------------------------
+    # Node Colors
+    # ------------------------------------------------------------------
+
+    def reset_all_node_colors(self) -> bool:
+        """Reset all node label colours on this timeline item.
+
+        Returns
+        -------
+        bool
+            ``True`` if the node colours were reset, or ``False`` if the
+            method is unavailable.
+        """
+        fn = getattr(self._obj, "ResetAllNodeColors", None)
+        if not callable(fn):
+            return False
+        return bool(fn())
+
+    # ------------------------------------------------------------------
+    # Color Output Cache
+    # ------------------------------------------------------------------
+
+    def get_color_output_cache(self) -> bool:
+        """Return whether colour output cache is enabled.
+
+        Returns
+        -------
+        bool
+            ``True`` if colour output cache is enabled, or ``False`` if
+            the method is unavailable.
+        """
+        fn = getattr(self._obj, "GetIsColorOutputCacheEnabled", None)
+        if not callable(fn):
+            return False
+        return bool(fn())
+
+    def set_color_output_cache(self, enabled: bool) -> bool:
+        """Enable or disable colour output cache.
+
+        Parameters
+        ----------
+        enabled:
+            ``True`` to enable, ``False`` to disable.
+
+        Returns
+        -------
+        bool
+            ``True`` if the setting was applied, or ``False`` if the
+            method is unavailable.
+        """
+        fn = getattr(self._obj, "SetColorOutputCache", None)
+        if not callable(fn):
+            return False
+        return bool(fn(int(enabled)))
 
     # ------------------------------------------------------------------
     # Colour Group

@@ -189,6 +189,25 @@ class Session:
         return self._obj.ImportLayoutPreset(name, path)
 
     # ------------------------------------------------------------------
+    # Constants
+    # ------------------------------------------------------------------
+
+    def get_export_constant(self, name: str):
+        """Resolve an export constant by name.
+
+        Parameters
+        ----------
+        name:
+            Export constant suffix, e.g. ``"EDL"`` for ``EXPORT_EDL``.
+
+        Returns
+        -------
+        int | None
+            The resolved constant value, or ``None`` if not found.
+        """
+        return getattr(self._obj, f"EXPORT_{name}", None)
+
+    # ------------------------------------------------------------------
     # Application lifecycle
     # ------------------------------------------------------------------
 

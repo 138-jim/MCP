@@ -14,3 +14,8 @@ venv/
 env/
 *.so
 .DS_Store
+Originals*/
+*.MP4
+*.mp4
+*.mov
+*.MOV

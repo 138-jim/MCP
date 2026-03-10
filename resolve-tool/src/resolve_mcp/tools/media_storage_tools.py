@@ -44,25 +44,24 @@ def register_media_storage_tools(mcp: FastMCP, state: ServerState):
 
     @mcp.tool()
     @resolve_tool
-    def resolve_import_files_to_pool(paths: str) -> str:
+    def resolve_import_files_to_pool(paths: list[str]) -> str:
         """Import files from media storage into the media pool.
 
         Args:
-            paths: Comma-separated list of absolute file paths to import.
+            paths: List of absolute file paths to import.
         """
         ms = state.session.get_media_storage()
-        paths_list = [p.strip() for p in paths.split(",") if p.strip()]
-        items = ms.add_items_to_media_pool(*paths_list)
+        items = ms.add_items_to_media_pool(*paths)
         return f"Imported {len(items)} item(s) to the media pool"
 
     @mcp.tool()
     @resolve_tool
-    def resolve_add_clip_mattes(clip_name: str, matte_paths: str) -> str:
+    def resolve_add_clip_mattes(clip_name: str, matte_paths: list[str]) -> str:
         """Add mattes to a media pool clip via media storage.
 
         Args:
             clip_name: Name of the clip to add mattes to.
-            matte_paths: Comma-separated list of matte file paths.
+            matte_paths: List of matte file paths.
         """
         ms = state.session.get_media_storage()
         # Find the clip by name in the current media pool folder
@@ -76,7 +75,6 @@ def register_media_storage_tools(mcp: FastMCP, state: ServerState):
                 break
         if clip is None:
             return f"Clip not found: {clip_name}"
-        paths_list = [p.strip() for p in matte_paths.split(",") if p.strip()]
-        if ms.add_clip_mattes_to_media_pool(clip, paths_list):
-            return f"Added {len(paths_list)} matte(s) to {clip_name}"
+        if ms.add_clip_mattes_to_media_pool(clip, matte_paths):
+            return f"Added {len(matte_paths)} matte(s) to {clip_name}"
         return f"Failed to add mattes to {clip_name}"

@@ -19,7 +19,17 @@ class ServerState:
 
     @property
     def session(self) -> Session:
-        """Return the current Session, connecting if needed."""
+        """Return the current Session, connecting if needed.
+
+        If the cached session is stale (Resolve restarted / disconnected),
+        a lightweight health check detects it and reconnects automatically.
+        """
+        if self._session is not None:
+            try:
+                self._session.get_current_page()  # lightweight health check
+            except Exception:
+                logger.warning("Connection lost, reconnecting to Resolve...")
+                self._session = None
         if self._session is None:
             self.connect()
         return self._session  # type: ignore[return-value]

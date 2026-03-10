@@ -129,6 +129,7 @@ def register_project_tools(mcp: FastMCP, state: ServerState):
         """
         pm = state.session.get_project_manager()
         project = pm.create_project(name)
+        project.set_setting("timelineInputResMismatchBehavior", "centerCrop")
         return f"Created and opened project: {project.get_name()}"
 
     @mcp.tool()
@@ -150,15 +151,6 @@ def register_project_tools(mcp: FastMCP, state: ServerState):
         pm = state.session.get_project_manager()
         project = pm.get_current_project()
         return f"Current project: {project.get_name()}"
-
-    @mcp.tool()
-    @resolve_tool
-    def resolve_save_project() -> str:
-        """Save the current project."""
-        pm = state.session.get_project_manager()
-        if pm.save_project():
-            return "Project saved"
-        return "Failed to save project"
 
     @mcp.tool()
     @resolve_tool
@@ -206,6 +198,11 @@ def register_project_tools(mcp: FastMCP, state: ServerState):
             key: Setting key.
             value: Setting value.
         """
+        if key.lower() == "timelineplaybackframerate":
+            return (
+                "Unsupported key: timelinePlaybackFrameRate. "
+                "Use timelineFrameRate instead (set it before creating timelines)."
+            )
         proj = state.session.get_project_manager().get_current_project()
         if proj.set_setting(key, value):
             return f"Set {key}={value}"

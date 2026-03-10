@@ -17,6 +17,12 @@ from resolve_mcp.tools.timeline_item_tools import register_timeline_item_tools
 from resolve_mcp.tools.color_tools import register_color_tools
 from resolve_mcp.tools.audio_tools import register_audio_tools
 from resolve_mcp.tools.deliver_tools import register_deliver_tools
+from resolve_mcp.tools.transition_tools import register_transition_tools
+from resolve_mcp.tools.color_node_tools import register_color_node_tools
+from resolve_mcp.tools.color_version_tools import register_color_version_tools
+from resolve_mcp.tools.color_grade_tools import register_color_grade_tools
+from resolve_mcp.tools.color_group_tools import register_color_group_tools
+from resolve_mcp.tools.gallery_tools import register_gallery_tools
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +45,12 @@ def create_server() -> FastMCP:
     register_color_tools(mcp, state)
     register_audio_tools(mcp, state)
     register_deliver_tools(mcp, state)
+    register_transition_tools(mcp, state)
+    register_color_node_tools(mcp, state)
+    register_color_version_tools(mcp, state)
+    register_color_grade_tools(mcp, state)
+    register_color_group_tools(mcp, state)
+    register_gallery_tools(mcp, state)
 
     _guide_path = Path(__file__).resolve().parent.parent.parent / "RESOLVE_GUIDE.md"
 

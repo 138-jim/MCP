@@ -30,7 +30,7 @@ Two packages in `src/`:
 
 **`resolve_lib`** — Standalone Python wrapper over the DaVinci Resolve Scripting API. Zero runtime dependencies. Each Resolve API object gets a Python class holding `_obj` (the raw API object). The class hierarchy mirrors Resolve's own: `Session` → `ProjectManager` → `Project` → `MediaPool`/`Timeline` → etc.
 
-**`resolve_mcp`** — MCP server that exposes ~80 tools as a thin layer over `resolve_lib`. Uses `FastMCP` from the `mcp` package. Tools return strings only.
+**`resolve_mcp`** — MCP server that exposes ~160 tools as a thin layer over `resolve_lib`. Uses `FastMCP` from the `mcp` package. Tools return strings only.
 
 ### Connection flow
 
@@ -51,6 +51,14 @@ def register_foo_tools(mcp: FastMCP, state: ServerState):
 ```
 
 New tool modules must be imported and registered in `server.py`.
+
+### Tool modules (15 files in `tools/`)
+
+`session_tools`, `project_tools`, `media_storage_tools`, `media_pool_tools`, `timeline_tools`, `timeline_item_tools`, `color_tools`, `audio_tools`, `deliver_tools`, `transition_tools`, `color_node_tools`, `color_version_tools`, `color_grade_tools`, `color_group_tools`, `gallery_tools`
+
+### Resources
+
+The server exposes a `resolve://guide` resource (serves `RESOLVE_GUIDE.md`) and stores Fusion transition presets in `presets/transitions/`.
 
 ### Error hierarchy
 
