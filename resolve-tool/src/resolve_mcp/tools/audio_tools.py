@@ -13,22 +13,36 @@ def register_audio_tools(mcp: FastMCP, state: ServerState):
     @mcp.tool()
     @resolve_tool
     def resolve_insert_audio_at_playhead(
-        file_path: str, start_offset: int = 0, duration: int = 0
+        file_path: str,
+        start_offset_samples: int = 0,
+        duration_samples: int = 0,
     ) -> str:
-        """Insert an audio file into the current track at the playhead position.
+        """Insert an audio file on the selected Fairlight track at the playhead.
+
+        IMPORTANT: This tool only works on the Fairlight page with an audio
+        track selected.  Switch to the Fairlight page first if needed.
 
         Args:
-            file_path: Path to the audio file.
-            start_offset: Start offset in frames within the audio file.
-            duration: Duration in frames (0 = full clip).
+            file_path: Absolute path to the audio file.
+            start_offset_samples: Start offset within the audio file in
+                samples (e.g. 44100 = 1 second at 44.1 kHz).  0 = beginning.
+            duration_samples: Duration in samples.  0 = use the full clip
+                length.
         """
+        import os
+
+        if not os.path.isfile(file_path):
+            return f"File not found: {file_path}"
         project = state.session.get_project_manager().get_current_project()
         result = project.insert_audio_to_current_track_at_playhead(
-            file_path, start_offset, duration
+            file_path, start_offset_samples, duration_samples
         )
         if result:
             return f"Inserted audio: {file_path}"
-        return f"Failed to insert audio: {file_path}"
+        return (
+            f"Failed to insert audio: {file_path}. "
+            "Ensure you are on the Fairlight page with an audio track selected."
+        )
 
     @mcp.tool()
     @resolve_tool

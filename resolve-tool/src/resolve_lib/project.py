@@ -562,14 +562,16 @@ class Project:
     ) -> bool:
         """Insert an audio clip on the current track at the playhead.
 
+        Requires the Fairlight page to be active with a track selected.
+
         Parameters
         ----------
         path:
             File path to the audio clip.
         start_offset:
-            Start offset in the audio file (in frames).
+            Start offset in the audio file **in samples** (not frames).
         duration:
-            Duration of the inserted audio (in frames).
+            Duration of the inserted audio **in samples** (0 = full clip).
 
         Returns
         -------

@@ -259,6 +259,7 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
         end_frame: int = -1,
         track_index: int = 1,
         media_type: int = 1,
+        track_type: str = "",
     ) -> str:
         """Insert a media pool clip at a specific timeline frame position.
 
@@ -273,7 +274,15 @@ def register_media_pool_tools(mcp: FastMCP, state: ServerState):
             end_frame: Source end frame (-1 to use clip default).
             track_index: Track index (1-based, default 1).
             media_type: 1 for video (default), 2 for audio-only.
+                Prefer using track_type instead.
+            track_type: "audio" or "video" (default "video").  When set,
+                this overrides media_type for convenience.
         """
+        # Allow callers to use the friendlier track_type string
+        if track_type.lower() == "audio":
+            media_type = 2
+        elif track_type.lower() == "video":
+            media_type = 1
         clip = find_clip_by_name(state, clip_name)
         if clip is None:
             return f"Clip not found: {clip_name}"
