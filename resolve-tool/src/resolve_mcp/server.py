@@ -53,10 +53,16 @@ def create_server() -> FastMCP:
     register_gallery_tools(mcp, state)
 
     _guide_path = Path(__file__).resolve().parent.parent.parent / "RESOLVE_GUIDE.md"
+    _fusion_guide_path = Path(__file__).resolve().parent.parent.parent / "FUSION_COMP_GUIDE.md"
 
     @mcp.resource("resolve://guide")
     def get_resolve_guide() -> str:
         """AI usage guide for the DaVinci Resolve MCP server — covers workflows, parameter conventions, and tips."""
         return _guide_path.read_text(encoding="utf-8")
+
+    @mcp.resource("resolve://fusion-comp-guide")
+    def get_fusion_comp_guide() -> str:
+        """Comprehensive reference for programmatically authoring Fusion .comp files — covers Lua grammar, tool types, input parameters, expressions, keyframes, and 20 complete templates."""
+        return _fusion_guide_path.read_text(encoding="utf-8")
 
     return mcp

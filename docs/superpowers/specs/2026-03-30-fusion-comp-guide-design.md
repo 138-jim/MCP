@@ -18,14 +18,14 @@ A single markdown file at `resolve-tool/FUSION_COMP_GUIDE.md`, served as MCP res
 
 The guide uses a **layered architecture**: compact grammar rules up front (always useful), categorized tool reference in the middle (lookup as needed), template library at the end (copy and modify).
 
-### Part 1: Grammar & Rules (~270 lines)
+### Part 1: Grammar & Rules
 
-#### 1.1 Overview (~20 lines)
+#### 1.1 Overview
 - `.comp` files are plain-text Lua table definitions
 - Used for Fusion compositions in DaVinci Resolve
 - Same syntax as `.setting` files (macros/presets)
 
-#### 1.2 File Structure (~100 lines)
+#### 1.2 File Structure
 The canonical `.comp` skeleton:
 
 ```lua
@@ -48,7 +48,7 @@ Cover:
 - MediaIn/MediaOut in Resolve context: `MediaIn1 = Loader { ... }`, `MediaOut1 = Saver { ... }`
 - Bracket notation for dotted input names: `["Gamut.SLogVersion"]`
 
-#### 1.3 Input Types (~50 lines)
+#### 1.3 Input Types
 Six forms of `Input {}`:
 
 | Form | Syntax | Use |
@@ -62,7 +62,7 @@ Six forms of `Input {}`:
 
 Plus: `Disabled = true` for inactive inputs.
 
-#### 1.4 Connection Rules (~30 lines)
+#### 1.4 Connection Rules
 - Connections use `SourceOp` (source tool name) + `Source` (output port name)
 - Standard output port names:
   - `"Output"` — image output from most tools
@@ -72,7 +72,7 @@ Plus: `Disabled = true` for inactive inputs.
   - `"Value"` — from modifiers (BezierSpline, etc.)
 - Effect masks connect via the `EffectMask` input name
 
-#### 1.5 Expression Syntax (~60 lines)
+#### 1.5 Expression Syntax
 Variables:
 - `time` — current frame number
 - `comp.RenderStart`, `comp.RenderEnd` — composition frame range
@@ -96,7 +96,7 @@ Common patterns table:
 - Conditional ramp: `iif(time < N, time / N, 1.0)`
 - Fade in + out: `iif(time < N, time/N, iif(time > (comp.RenderEnd - N), (comp.RenderEnd - time)/N, 1.0))`
 
-#### 1.6 Keyframe / BezierSpline Syntax (~40 lines)
+#### 1.6 Keyframe / BezierSpline Syntax
 Modifiers are defined as sibling entries in the `Tools` table, referenced via `SourceOp`/`Source = "Value"`:
 
 ```lua
@@ -117,7 +117,7 @@ Keyframe entry: `[frame] = { value, LH = {x,y}, RH = {x,y}, Flags = { Linear = t
 
 Also cover `LUTBezier` for lookup-table splines (particle size-over-life, etc.).
 
-#### 1.7 Data Types (~20 lines)
+#### 1.7 Data Types
 - Points: `{ x, y }` in inputs, `Point(x, y)` in expressions
 - Colors in inputs: separate `TopLeftRed`, `TopLeftGreen`, `TopLeftBlue`, `TopLeftAlpha` keys (0.0–1.0)
 - Colors in tile metadata: `{ R = 0.278, G = 0.509, B = 0.290 }` (0.0–1.0)
@@ -127,7 +127,7 @@ Also cover `LUTBezier` for lookup-table splines (particle size-over-life, etc.).
 
 ---
 
-### Part 2: Tool Reference (~600–800 lines, varies by depth needed)
+### Part 2: Tool Reference
 
 Categorized reference. Each tool gets: internal ID, key inputs with types/defaults, and a minimal 3–5 line usage snippet. High-use tools get full input tables; rare tools get ID + one-liner.
 
@@ -182,7 +182,7 @@ Operator modes: `Over`, `In`, `Held Out`, `Atop`, `XOr`
 
 ---
 
-### Part 3: Template Library (~800 lines)
+### Part 3: Template Library
 
 Complete, working `Composition { Tools = { ... } }` blocks. Each template has:
 - Brief description (1–2 lines)
