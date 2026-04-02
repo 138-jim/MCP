@@ -213,93 +213,10 @@ If `start_timecode` is omitted, it auto-aligns to the first clip start on V1.
 
 ## Transitions (Fusion-Based)
 
-The Resolve scripting API has no built-in method to apply traditional timeline transitions. This server provides two approaches:
-
-1. **Single-clip presets** — Fusion `.comp` files that replace a clip's composition (fade in/out, dip to black/white). Non-destructive, affects one clip.
-2. **Two-clip overlay transitions** — rearrange two adjacent clips onto separate tracks with an overlap, then apply Fusion comps to individual clips (cross dissolve, blur). Clips remain as regular media clips with Fusion compositions — no Fusion clips are created.
-
-### Single-clip preset transitions
-
-#### Listing available presets
-```
-resolve_list_available_transitions    → fade_in, fade_out, dip_to_black, dip_to_white
-```
-
-#### Applying a preset to a clip
-```
-resolve_list_items_in_track("video", 1)                        → find the clip
-resolve_apply_transition("video", 1, 0, "fade_in")            → fade in from black on first clip
-resolve_apply_transition("video", 1, 4, "fade_out")           → fade out to black on last clip
-resolve_apply_transition("video", 1, 2, "dip_to_black")       → dip to black mid-clip
-```
-
-Each preset replaces the clip's Fusion composition with a node graph that uses Fusion expressions (`comp.RenderEnd`) to adapt timing to the trimmed clip duration. Default transition duration is ~30 frames from clip start/end.
-
-#### Using a custom .comp preset
+Import a Fusion composition (.comp) file onto a clip to use as a transition:
 ```
 resolve_import_transition_preset("video", 1, 0, "/path/to/my_wipe.comp")
 ```
-
-### Two-clip overlay transitions
-
-Both `resolve_apply_cross_dissolve` and `resolve_apply_blur_transition` use an overlay approach:
-
-```
-V2: |---- Clip B (Fusion comp: opacity ramp 0→1) ----|
-V1: |--- Clip A ---|
-    ^              ^                                   ^
-    A_start     cut point                          B_end
-               (overlap region)
-```
-
-1. Verify the two clips are adjacent and clip B has enough source material (`left_offset >= dissolve_duration`)
-2. Delete clip B from the original track
-3. Re-insert clip B on a higher video track, shifted back by `dissolve_duration` frames (using earlier source material)
-4. Apply Fusion `.comp` presets to the individual clips (generated from parameterized Python templates)
-
-Clip B's comp uses a transparent `Background` node merged with the media via `Merge.Blend` — at Blend=0, clip A on the lower track shows through; at Blend=1, clip B is fully opaque.
-
-**Effect on timeline length:** The total timeline duration does not change. Clip B is extended backwards using `dissolve_duration` frames of earlier source material to fill the overlap region.
-
-**Prerequisites:** Clip B must have enough unused source material before its current in-point. Check with `resolve_get_item_offsets` — the `LeftOffset` value must be >= `dissolve_duration`. If `LeftOffset` is 0, the tool will return an error and not modify the timeline.
-
-#### Cross dissolve
-```
-resolve_list_items_in_track("video", 1)                        → find adjacent clips
-resolve_get_item_offsets("video", 1, 1)                        → check LeftOffset >= dissolve_duration
-resolve_apply_cross_dissolve(
-    track_index=1,
-    item_index_a=0,
-    item_index_b=1,
-    dissolve_duration=30
-)
-```
-Applies a Fusion comp to clip B only — ramps `Merge.Blend` from 0→1 over the first `dissolve_duration` frames. Clip A stays untouched on the lower track and shows through the transparent background during the ramp.
-
-#### Blur transition
-```
-resolve_list_items_in_track("video", 1)                        → find adjacent clips
-resolve_get_item_offsets("video", 1, 1)                        → check LeftOffset >= dissolve_duration
-resolve_apply_blur_transition(
-    track_index=1,
-    item_index_a=0,
-    item_index_b=1,
-    dissolve_duration=30,
-    blur_size=15.0
-)
-```
-Applies Fusion comps to both clips:
-- **Clip A** gets a blur that ramps from 0 to `blur_size` over the last `dissolve_duration` frames (stays fully opaque, just blurs)
-- **Clip B** gets both a blur ramp (`blur_size` → 0) and an opacity ramp (0 → 1) over the first `dissolve_duration` frames
-- `blur_size` controls the maximum blur amount (default 15.0); higher values = more dramatic blur
-
-#### Render cache
-After applying overlay transitions, clips with Fusion comps may need caching. Fix this by:
-- Right-click the clip → **Render Cache Fusion Output** → **On**
-- Or enable globally: **Playback → Render Cache → Smart**
-
-### Creating custom presets
-Place `.comp` files in the server's `presets/transitions/` directory. Each `.comp` should use the standard Fusion node graph pattern: `MediaIn1` (as `Loader`) → effect nodes → `MediaOut1` (as `Saver`). Use `comp.RenderEnd` in Fusion expressions so timing adapts to the trimmed clip duration on the timeline. `comp.GlobalEnd` refers to the full source clip which may extend beyond the visible trim.
 
 ## Markers
 
@@ -501,18 +418,19 @@ resolve_list_render_jobs     → see all queued jobs
 ### Insert external audio at playhead
 
 ```
-resolve_set_page("edit")  # or "fairlight"
+resolve_set_page("fairlight")
 resolve_set_current_timecode("00:00:10:00")
 resolve_insert_audio_at_playhead(
     file_path="/path/audio.wav",
-    start_offset=0,
-    duration=0
+    start_offset_samples=0,
+    duration_samples=0
 )
 ```
 
+- **Requires the Fairlight page** with an audio track selected.
 - `file_path` must be an absolute path to an audio file.
-- `start_offset` and `duration` are in **frames**.
-- `duration=0` means "use full remaining source duration".
+- `start_offset_samples` and `duration_samples` are in **samples** (e.g. 44100 = 1 second at 44.1 kHz).
+- `duration_samples=0` means "use full clip length".
 - Audio is inserted to the **currently targeted audio track** at the playhead.
 
 ### Load a burn-in preset
@@ -573,3 +491,175 @@ For clip-level info/operations on audio clips, use timeline-item tools with
 9. **The connection is lazy** — The first tool call triggers connection to Resolve. If Resolve isn't running, you'll get a connection error. No explicit connect step needed.
 
 10. **Export EDLs for interchange** — After assembling a timeline, use `resolve_export_timeline` to export a real EDL if you need the cut list in a standard format.
+
+## Fusion Scripting Tools
+
+These tools provide direct access to the Fusion scripting API within a timeline item's composition. They complement the basic Fusion tools (`resolve_add_fusion_comp`, `resolve_set_fusion_tool_input`, `resolve_get_fusion_tool_input`) with advanced capabilities like node creation, connections, keyframes, Lua scripting, and performance controls.
+
+All Fusion scripting tools share the same item-addressing pattern: `track_type`, `track_index`, `item_index`, plus an optional `comp_index` (1-based, default 1).
+
+### Lock / Unlock (Batch Performance)
+
+Use `Lock` before making multiple changes to prevent Resolve from re-rendering after every single operation. Always `Unlock` when done.
+
+```
+resolve_fusion_lock("video", 1, 0)
+# ... make many changes ...
+resolve_fusion_unlock("video", 1, 0)
+```
+
+**When to use**: Any time you are making 3+ changes to a composition in a row. Locking can reduce execution time by 10x or more for batch operations.
+
+### Start Undo / End Undo (Atomic Changes)
+
+Group multiple operations into a single undoable action. The user sees one "Undo" entry instead of many.
+
+```
+resolve_fusion_start_undo("video", 1, 0, name="Add colour grade chain")
+# ... multiple add_tool / connect / set_input calls ...
+resolve_fusion_end_undo("video", 1, 0, keep=True)
+```
+
+Set `keep=False` to discard all changes made since `start_undo` (useful for error recovery).
+
+### Adding Tools
+
+```
+resolve_fusion_add_tool("video", 1, 0, tool_type="ColorCorrector")
+resolve_fusion_add_tool("video", 1, 0, tool_type="Merge")
+resolve_fusion_add_tool("video", 1, 0, tool_type="Transform")
+```
+
+Common tool types: `Background`, `Merge`, `Transform`, `ColorCorrector`, `Blur`, `Glow`, `BrightnessContrast`, `ChannelBooleans`, `FastNoise`, `Polygon`, `BSpline`, `Ellipse`, `Rectangle`, `Plasma`, `Text+`.
+
+Returns the instance name (e.g. `"ColorCorrector1"`) which you use in subsequent calls.
+
+### Connecting Tools
+
+```
+resolve_fusion_connect("video", 1, 0,
+    tool_name="Merge1", input_name="Background", target_tool="Background1")
+resolve_fusion_connect("video", 1, 0,
+    tool_name="Merge1", input_name="Foreground", target_tool="Text1")
+```
+
+Common input names on Merge: `Background`, `Foreground`. On most tools: `Input`.
+
+### Setting and Getting Inputs (by Tool Name)
+
+```
+resolve_fusion_set_input("video", 1, 0,
+    tool_name="ColorCorrector1", input_name="Gain", value="1.2")
+resolve_fusion_get_input("video", 1, 0,
+    tool_name="ColorCorrector1", input_name="Gain")
+```
+
+These tools look up tools by their instance name (e.g. `"Background1"`, `"Merge1"`) rather than by type ID. Values are auto-converted: numeric strings become float/int.
+
+### Listing Tools
+
+```
+resolve_fusion_get_tool_list("video", 1, 0)
+```
+
+Returns all tool names and their types in the composition. Useful for discovering what nodes exist before modifying them.
+
+### Keyframes (Animation)
+
+```
+resolve_fusion_add_keyframe("video", 1, 0,
+    tool_name="Transform1", input_name="Size", time=0, value="1.0")
+resolve_fusion_add_keyframe("video", 1, 0,
+    tool_name="Transform1", input_name="Size", time=30, value="1.5")
+```
+
+You can also pass `time` to `resolve_fusion_set_input` for the same effect.
+
+### Lua Script Execution
+
+For complex multi-step operations, use `resolve_fusion_execute` to run a Lua script directly in the composition context. The `comp` variable is available automatically.
+
+```
+resolve_fusion_execute("video", 1, 0, script="""
+    local bg = comp:AddTool("Background", -32768, -32768)
+    bg.TopLeftRed = 0.2
+    bg.TopLeftGreen = 0.1
+    bg.TopLeftBlue = 0.3
+    local mg = comp:AddTool("Merge", -32768, -32768)
+    mg.Background = bg
+    mg.Foreground = comp.MediaIn1
+""")
+```
+
+**Performance tip**: Use `execute()` for multi-step operations (5+ calls) to avoid per-call round-trip overhead. A single Lua script is faster than multiple individual tool calls.
+
+### Example: Building a Colour Grade Node Chain
+
+```
+# Lock for batch performance
+resolve_fusion_lock("video", 1, 0)
+resolve_fusion_start_undo("video", 1, 0, name="Add colour grade")
+
+# Add nodes
+resolve_fusion_add_tool("video", 1, 0, tool_type="ColorCorrector")
+resolve_fusion_add_tool("video", 1, 0, tool_type="Merge")
+
+# Connect: MediaIn -> ColorCorrector -> Merge -> MediaOut
+resolve_fusion_connect("video", 1, 0,
+    tool_name="ColorCorrector1", input_name="Input", target_tool="MediaIn1")
+resolve_fusion_connect("video", 1, 0,
+    tool_name="Merge1", input_name="Background", target_tool="ColorCorrector1")
+resolve_fusion_connect("video", 1, 0,
+    tool_name="MediaOut1", input_name="Input", target_tool="Merge1")
+
+# Set grade values
+resolve_fusion_set_input("video", 1, 0,
+    tool_name="ColorCorrector1", input_name="MasterGain", value="1.15")
+resolve_fusion_set_input("video", 1, 0,
+    tool_name="ColorCorrector1", input_name="MasterSaturation", value="1.1")
+
+resolve_fusion_end_undo("video", 1, 0, keep=True)
+resolve_fusion_unlock("video", 1, 0)
+```
+
+### Example: Complex Effect via Lua Script
+
+```
+resolve_fusion_execute("video", 1, 0, script="""
+    comp:Lock()
+    comp:StartUndo("Vignette effect")
+
+    local ell = comp:AddTool("EllipseMask", -32768, -32768)
+    ell.Width = 1.8
+    ell.Height = 1.8
+    ell.SoftEdge = 0.3
+
+    local bc = comp:AddTool("BrightnessContrast", -32768, -32768)
+    bc.Gain = 0.6
+    bc.EffectMask = ell
+
+    local mg = comp:AddTool("Merge", -32768, -32768)
+    mg.Background = comp.MediaIn1
+    mg.Foreground = bc
+    comp.MediaOut1.Input = mg
+
+    comp:EndUndo(true)
+    comp:Unlock()
+""")
+```
+
+### Tool Parameter Reference
+
+| Tool | Parameter | Description |
+|------|-----------|-------------|
+| `resolve_fusion_lock` | `track_type`, `track_index`, `item_index`, `comp_index` | Lock comp (prevent rendering) |
+| `resolve_fusion_unlock` | `track_type`, `track_index`, `item_index`, `comp_index` | Unlock comp (resume rendering) |
+| `resolve_fusion_start_undo` | + `name` | Start undo group |
+| `resolve_fusion_end_undo` | + `keep` (bool) | End undo group |
+| `resolve_fusion_add_tool` | + `tool_type` | Add a tool node |
+| `resolve_fusion_connect` | + `tool_name`, `input_name`, `target_tool` | Connect tool output to input |
+| `resolve_fusion_set_input` | + `tool_name`, `input_name`, `value`, `time` | Set input value |
+| `resolve_fusion_get_input` | + `tool_name`, `input_name`, `time` | Get input value |
+| `resolve_fusion_get_tool_list` | (base params only) | List all tools |
+| `resolve_fusion_execute` | + `script` | Run Lua script |
+| `resolve_fusion_add_keyframe` | + `tool_name`, `input_name`, `time`, `value` | Add keyframe |

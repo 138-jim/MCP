@@ -22,6 +22,7 @@ from resolve_mcp.tools.color_node_tools import register_color_node_tools
 from resolve_mcp.tools.color_version_tools import register_color_version_tools
 from resolve_mcp.tools.color_grade_tools import register_color_grade_tools
 from resolve_mcp.tools.color_group_tools import register_color_group_tools
+from resolve_mcp.tools.fusion_scripting_tools import register_fusion_scripting_tools
 from resolve_mcp.tools.gallery_tools import register_gallery_tools
 
 logging.basicConfig(
@@ -51,6 +52,7 @@ def create_server() -> FastMCP:
     register_color_grade_tools(mcp, state)
     register_color_group_tools(mcp, state)
     register_gallery_tools(mcp, state)
+    register_fusion_scripting_tools(mcp, state)
 
     _guide_path = Path(__file__).resolve().parent.parent.parent / "RESOLVE_GUIDE.md"
     _fusion_guide_path = Path(__file__).resolve().parent.parent.parent / "FUSION_COMP_GUIDE.md"
