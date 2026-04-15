@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from resolve_mcp.helpers import resolve_tool, format_dict, get_item
+from resolve_mcp.helpers import resolve_tool, format_dict, get_item, get_timeline
 from resolve_mcp.state import ServerState
 
 
@@ -327,3 +327,46 @@ def register_timeline_item_tools(mcp: FastMCP, state: ServerState):
         if item.apply_smart_reframe():
             return "Smart Reframe applied"
         return "Failed to apply Smart Reframe"
+
+    @mcp.tool()
+    @resolve_tool
+    def resolve_set_fusion_output_cache(
+        track_type: str, track_index: int, item_index: int,
+        enabled: bool = True,
+    ) -> str:
+        """Enable or disable Fusion output cache for a timeline item.
+
+        Enabling forces Resolve to render and cache the Fusion composition
+        immediately, making effects visible in the Edit page without
+        requiring a manual Fusion page visit.
+
+        Args:
+            enabled: True to enable cache, False to disable.
+        """
+        item = get_item(state, track_type, track_index, item_index)
+        if item is None:
+            return f"Item not found at {track_type}:{track_index}:{item_index}"
+        if item.set_fusion_output_cache(enabled):
+            status = "enabled" if enabled else "disabled"
+            return f"Fusion output cache {status}"
+        return "Failed to set Fusion output cache (may not be supported)"
+
+    @mcp.tool()
+    @resolve_tool
+    def resolve_set_fusion_output_cache_all(enabled: bool = True) -> str:
+        """Enable or disable Fusion output cache for ALL clips on video track 1.
+
+        Call this after building all Fusion effects to force rendering of
+        the entire timeline without visiting the Fusion page manually.
+
+        Args:
+            enabled: True to enable cache, False to disable.
+        """
+        tl = get_timeline(state)
+        items = tl.get_item_list_in_track("video", 1)
+        success = 0
+        for item in items:
+            if item.set_fusion_output_cache(enabled):
+                success += 1
+        status = "enabled" if enabled else "disabled"
+        return f"Fusion output cache {status} on {success}/{len(items)} clips"

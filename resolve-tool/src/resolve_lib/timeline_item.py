@@ -971,6 +971,46 @@ class TimelineItem:
         return bool(fn(int(enabled)))
 
     # ------------------------------------------------------------------
+    # Fusion Output Cache
+    # ------------------------------------------------------------------
+
+    def set_fusion_output_cache(self, enabled: bool) -> bool:
+        """Enable or disable Fusion output cache for this clip.
+
+        Enabling the Fusion output cache forces Resolve to render and cache
+        the Fusion composition immediately, making effects visible in the
+        Edit page without requiring a manual Fusion page visit.
+
+        Parameters
+        ----------
+        enabled:
+            ``True`` to enable, ``False`` to disable.
+
+        Returns
+        -------
+        bool
+            ``True`` if the setting was applied, or ``False`` if the
+            method is unavailable.
+        """
+        fn = getattr(self._obj, "SetFusionOutputCache", None)
+        if not callable(fn):
+            return False
+        return bool(fn("enable" if enabled else "disable"))
+
+    def get_fusion_output_cache(self) -> bool:
+        """Return whether Fusion output cache is enabled.
+
+        Returns
+        -------
+        bool
+            ``True`` if Fusion output cache is enabled.
+        """
+        fn = getattr(self._obj, "GetIsFusionOutputCacheEnabled", None)
+        if not callable(fn):
+            return False
+        return bool(fn())
+
+    # ------------------------------------------------------------------
     # Colour Group
     # ------------------------------------------------------------------
 

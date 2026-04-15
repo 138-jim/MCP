@@ -145,7 +145,7 @@ Create, navigate, and configure timelines.
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `resolve_append_clips_to_timeline` | `clip_names` (comma-separated) | Append clips to the end of the timeline |
-| `resolve_insert_clip_at_frame` | `clip_name`, `record_frame`, `start_frame?`, `end_frame?`, `track_index?` | Insert a media pool clip at a specific timeline frame |
+| `resolve_insert_clip_at_frame` | `clip_name`, `record_frame`, `start_frame?`, `end_frame?`, `track_index?`, `track_type?` | Insert a media pool clip at a specific timeline frame (`track_type`: "video" or "audio") |
 | `resolve_delete_items` | `track_type`, `track_index`, `item_indices` (comma-separated), `ripple?` | Delete clips from the timeline by index |
 
 ---
@@ -207,59 +207,9 @@ Notes:
 
 ## Transitions (Fusion-Based)
 
-Apply transition effects to timeline clips. There are two categories:
-
-**Single-clip presets** — replace a clip's Fusion composition with a preset effect (fade in/out, dip to black/white). These are non-destructive and only affect one clip.
-
-**Two-clip overlay transitions** — rearrange two adjacent clips onto separate tracks with an overlap, then apply Fusion `.comp` presets to individual clips for the transition effect (cross dissolve, blur transition). The original clips remain as regular media clips — no Fusion clips are created.
-
-### Single-Clip Preset Transitions
-
-**Built-in presets:** `fade_in`, `fade_out`, `dip_to_black`, `dip_to_white`
-
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `resolve_list_available_transitions` | — | List available Fusion transition preset names |
-| `resolve_apply_transition` | `track_type`, `track_index`, `item_index`, `transition_name` | Apply a built-in transition preset to a clip |
-| `resolve_import_transition_preset` | `track_type`, `track_index`, `item_index`, `preset_path` | Import a custom .comp file as a transition on a clip |
-
-Notes:
-- These replace the clip's Fusion composition with the preset's node graph.
-- Each preset uses Fusion expressions referencing `comp.RenderEnd` so the transition timing adapts to the trimmed clip duration on the timeline.
-- Default transition duration is ~30 frames from clip start/end.
-- Custom presets can be added by placing `.comp` files in the `presets/transitions/` directory within the server package.
-
-### Two-Clip Overlay Transitions
-
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `resolve_apply_cross_dissolve` | `track_index`, `item_index_a`, `item_index_b`, `dissolve_duration?` | Cross dissolve: clip B fades in over clip A during the overlap |
-| `resolve_apply_blur_transition` | `track_index`, `item_index_a`, `item_index_b`, `dissolve_duration?`, `blur_size?` | Blur transition: clip A blurs out while clip B blurs in and fades in |
-
-**How the overlay approach works:**
-
-```
-V2: |---- Clip B (Fusion comp applied) ----|
-V1: |--- Clip A ---|
-    ^              ^                        ^
-    A_start     cut point               B_end
-               (overlap region)
-```
-
-1. Clip B is deleted from the original track and re-inserted on a higher video track, shifted back by `dissolve_duration` frames. This creates an overlap region where both clips exist on separate tracks.
-2. Fusion `.comp` presets are applied to individual clips (not a merged Fusion clip). The clips remain as regular media clips with Fusion compositions.
-3. Clip B's comp uses a transparent background with a `Merge.Blend` ramp — at Blend=0, the background is transparent so clip A on the lower track shows through; at Blend=1, clip B is fully opaque.
-
-**Effect on timeline length:** Clip B is extended backwards using `dissolve_duration` frames of earlier source material to fill the overlap — the total timeline duration does not change. Clip B must have enough unused source material before its in-point (`left_offset >= dissolve_duration`). Use `resolve_get_item_offsets` to check.
-
-**Cross dissolve** applies a Fusion comp to clip B only. The comp ramps `Merge.Blend` from 0→1 over the first `dissolve_duration` frames — clip A remains untouched on the lower track and shows through during the ramp.
-
-**Blur transition** applies Fusion comps to both clips:
-- **Clip A** gets a blur that ramps from 0 to `blur_size` over the last `dissolve_duration` frames (clip A stays fully opaque, just blurs)
-- **Clip B** gets both a blur ramp (from `blur_size` down to 0) and an opacity ramp (transparent to opaque) over the first `dissolve_duration` frames
-- `blur_size` controls the maximum blur amount (default 15.0)
-
-**Render cache:** After applying either transition, clips with Fusion comps may need caching. Right-click the clip → **Render Cache Fusion Output** → **On**, or enable **Playback → Render Cache → Smart**.
+| `resolve_import_transition_preset` | `track_type`, `track_index`, `item_index`, `preset_path` | Import a Fusion composition (.comp) file as a transition on a clip |
 
 ---
 
@@ -385,12 +335,13 @@ Audio-related operations on the Fairlight page.
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `resolve_insert_audio_at_playhead` | `file_path`, `start_offset?`, `duration?` | Insert an audio file at the playhead |
+| `resolve_insert_audio_at_playhead` | `file_path`, `start_offset_samples?`, `duration_samples?` | Insert an audio file at the playhead (Fairlight page only) |
 | `resolve_load_burn_in_preset` | `name` | Load a burn-in preset by name |
 
 Notes:
-- `start_offset` and `duration` are frame counts.
-- `duration=0` uses the full remaining source audio.
+- **`resolve_insert_audio_at_playhead` requires the Fairlight page** with an audio track selected.
+- `start_offset_samples` and `duration_samples` are in **samples** (e.g. 44100 = 1 second at 44.1 kHz), not frames.
+- `duration_samples=0` uses the full clip length.
 - `resolve_insert_audio_at_playhead` inserts into the currently targeted audio track.
 - `resolve_load_burn_in_preset` applies a project burn-in preset (commonly used before rendering).
 
